@@ -27,6 +27,49 @@ MainWindow::MainWindow(QWidget *parent)
     ui->toolButtonDownProperty->setIconSize(QSize(32, 32));
     ui->toolButtonDownProperty->setIcon(QIcon(":/images/down.png"));
 
+
+
+
+    ui->toolButtonPropertyRestrictionSetAdd->setFixedSize(24, 24);
+    ui->toolButtonPropertyRestrictionSetAdd->setIconSize(QSize(24, 24));
+    ui->toolButtonPropertyRestrictionSetAdd->setIcon(QIcon(":/images/plus.png"));
+
+    ui->toolButtonPropertyRestrictionSetRemove->setFixedSize(24, 24);
+    ui->toolButtonPropertyRestrictionSetRemove->setIconSize(QSize(24, 24));
+    ui->toolButtonPropertyRestrictionSetRemove->setIcon(QIcon(":/images/minus.png"));
+
+    ui->toolButtonPropertyRestrictionSetUp->setFixedSize(24, 24);
+    ui->toolButtonPropertyRestrictionSetUp->setIconSize(QSize(24, 24));
+    ui->toolButtonPropertyRestrictionSetUp->setIcon(QIcon(":/images/up.png"));
+
+    ui->toolButtonPropertyRestrictionSetDown->setFixedSize(24, 24);
+    ui->toolButtonPropertyRestrictionSetDown->setIconSize(QSize(24, 24));
+    ui->toolButtonPropertyRestrictionSetDown->setIcon(QIcon(":/images/down.png"));
+
+
+
+
+
+    ui->toolButtonPropertyRestrictionCountSetAdd->setFixedSize(24, 24);
+    ui->toolButtonPropertyRestrictionCountSetAdd->setIconSize(QSize(24, 24));
+    ui->toolButtonPropertyRestrictionCountSetAdd->setIcon(QIcon(":/images/plus.png"));
+
+    ui->toolButtonPropertyRestrictionCountSetRemove->setFixedSize(24, 24);
+    ui->toolButtonPropertyRestrictionCountSetRemove->setIconSize(QSize(24, 24));
+    ui->toolButtonPropertyRestrictionCountSetRemove->setIcon(QIcon(":/images/minus.png"));
+
+    ui->toolButtonPropertyRestrictionCountSetUp->setFixedSize(24, 24);
+    ui->toolButtonPropertyRestrictionCountSetUp->setIconSize(QSize(24, 24));
+    ui->toolButtonPropertyRestrictionCountSetUp->setIcon(QIcon(":/images/up.png"));
+
+    ui->toolButtonPropertyRestrictionCountSetDown->setFixedSize(24, 24);
+    ui->toolButtonPropertyRestrictionCountSetDown->setIconSize(QSize(24, 24));
+    ui->toolButtonPropertyRestrictionCountSetDown->setIcon(QIcon(":/images/down.png"));
+
+
+
+
+
     ui->splitter->setStretchFactor(0, 0);
     ui->splitter->setStretchFactor(1, 1);
 
