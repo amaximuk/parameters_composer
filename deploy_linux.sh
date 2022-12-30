@@ -1,0 +1,42 @@
+#!/bin/bash
+
+SCRIPT_PATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+BINARY_DIR="$SCRIPT_PATH/build"
+QT5_BINARY_DIR="c:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5/../../.."
+
+if [ ! -d "$BINARY_DIR/lib" ]; then mkdir -p "$BINARY_DIR/lib"; fi
+if [ ! -d "$BINARY_DIR/plugins/platforms" ]; then mkdir -p "$BINARY_DIR/plugins/platforms"; fi
+if [ ! -d "$BINARY_DIR/plugins/imageformats" ]; then mkdir -p "$BINARY_DIR/plugins/imageformats"; fi
+
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5Core.so" "$BINARY_DIR/lib/libQt5Core.so"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5Core.so.5" "$BINARY_DIR/lib/libQt5Core.so.5"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5Core.so.5.15" "$BINARY_DIR/lib/libQt5Core.so.5.15"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5Core.so.5.15.2" "$BINARY_DIR/lib/libQt5Core.so.5.15.2"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5DBus.so" "$BINARY_DIR/lib/libQt5DBus.so"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5DBus.so.5" "$BINARY_DIR/lib/libQt5DBus.so.5"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5DBus.so.5.15" "$BINARY_DIR/lib/libQt5DBus.so.5.15"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5DBus.so.5.15.2" "$BINARY_DIR/lib/libQt5DBus.so.5.15.2"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5Gui.so" "$BINARY_DIR/lib/libQt5Gui.so"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5Gui.so.5" "$BINARY_DIR/lib/libQt5Gui.so.5"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5Gui.so.5.15" "$BINARY_DIR/lib/libQt5Gui.so.5.15"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5Gui.so.5.15.2" "$BINARY_DIR/lib/libQt5Gui.so.5.15.2"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5Widgets.so" "$BINARY_DIR/lib/libQt5Widgets.so"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5Widgets.so.5" "$BINARY_DIR/lib/libQt5Widgets.so.5"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5Widgets.so.5.15" "$BINARY_DIR/lib/libQt5Widgets.so.5.15"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5Widgets.so.5.15.2" "$BINARY_DIR/lib/libQt5Widgets.so.5.15.2"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5XcbQpa.so" "$BINARY_DIR/lib/libQt5XcbQpa.so"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5XcbQpa.so.5" "$BINARY_DIR/lib/libQt5XcbQpa.so.5"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5XcbQpa.so.5.15" "$BINARY_DIR/lib/libQt5XcbQpa.so.5.15"
+cp -Rf "$QT5_BINARY_DIR/lib/libQt5XcbQpa.so.5.15.2" "$BINARY_DIR/lib/libQt5XcbQpa.so.5.15.2"
+cp -Rf "$QT5_BINARY_DIR/lib/libicudata.so" "$BINARY_DIR/lib/libicudata.so"
+cp -Rf "$QT5_BINARY_DIR/lib/libicudata.so.56" "$BINARY_DIR/lib/libicudata.so.56"
+cp -Rf "$QT5_BINARY_DIR/lib/libicudata.so.56.1" "$BINARY_DIR/lib/libicudata.so.56.1"
+cp -Rf "$QT5_BINARY_DIR/lib/libicui18n.so" "$BINARY_DIR/lib/libicui18n.so"
+cp -Rf "$QT5_BINARY_DIR/lib/libicui18n.so.56" "$BINARY_DIR/lib/libicui18n.so.56"
+cp -Rf "$QT5_BINARY_DIR/lib/libicui18n.so.56.1" "$BINARY_DIR/lib/libicui18n.so.56.1"
+cp -Rf "$QT5_BINARY_DIR/lib/libicuuc.so" "$BINARY_DIR/lib/libicuuc.so"
+cp -Rf "$QT5_BINARY_DIR/lib/libicuuc.so.56" "$BINARY_DIR/lib/libicuuc.so.56"
+cp -Rf "$QT5_BINARY_DIR/lib/libicuuc.so.56.1" "$BINARY_DIR/lib/libicuuc.so.56.1"
+
+cp -Rf "$QT5_BINARY_DIR/plugins/platforms/libqxcb.so" "$BINARY_DIR/plugins/platforms/libqxcb.so"
+cp -Rf "$QT5_BINARY_DIR/plugins/imageformats/libqgif.so" "$BINARY_DIR/plugins/imageformats/libqgif.so"
