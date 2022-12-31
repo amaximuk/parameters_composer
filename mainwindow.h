@@ -18,8 +18,14 @@ public:
 
 private:
     void CreateUi();
+    QWidget* CreatePropertiesTabWidget();
+    QWidget* CreatePropertiesTabInfoWidget();
+    QWidget* CreatePropertiesTabPropertyListWidget();
+    QWidget* CreatePropertiesTabPropertiesWidget();
 
 private slots:
+    void on_toolButtonAdd_clicked();
+
     void on_toolButtonAddProperty_clicked();
 
     void on_listWidgetProperties_currentItemChanged(QListWidgetItem *current, QListWidgetItem *previous);
