@@ -9,111 +9,188 @@
 #include <QToolButton>
 #include <QScrollArea>
 #include <QCheckBox>
+#include <QMenu>
+#include <QMenuBar>
+#include <QMessageBox>
+#include <QApplication>
+#include <QFileDialog>
 
+#include "yaml_parser.h"
 #include "mainwindow.h"
-//#include "./ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-//    , ui(new Ui::MainWindow)
 {
+    currentFileName_ = "Untitled";
+    parser_ = nullptr;
+
     CreateUi();
 
-    //ui->setupUi(this);
     setWindowIcon(QIcon(":/images/parameters.png"));
-
-
-
-
-//    ui->toolButtonAddProperty->setFixedSize(32, 32);
-//    ui->toolButtonAddProperty->setIconSize(QSize(32, 32));
-//    ui->toolButtonAddProperty->setIcon(QIcon(":/images/plus.png"));
-
-//    ui->toolButtonRemoveProperty->setFixedSize(32, 32);
-//    ui->toolButtonRemoveProperty->setIconSize(QSize(32, 32));
-//    ui->toolButtonRemoveProperty->setIcon(QIcon(":/images/minus.png"));
-
-//    ui->toolButtonUpProperty->setFixedSize(32, 32);
-//    ui->toolButtonUpProperty->setIconSize(QSize(32, 32));
-//    ui->toolButtonUpProperty->setIcon(QIcon(":/images/up.png"));
-
-//    ui->toolButtonDownProperty->setFixedSize(32, 32);
-//    ui->toolButtonDownProperty->setIconSize(QSize(32, 32));
-//    ui->toolButtonDownProperty->setIcon(QIcon(":/images/down.png"));
-
-
-
-
-//    ui->toolButtonPropertyRestrictionSetAdd->setFixedSize(24, 24);
-//    ui->toolButtonPropertyRestrictionSetAdd->setIconSize(QSize(24, 24));
-//    ui->toolButtonPropertyRestrictionSetAdd->setIcon(QIcon(":/images/plus.png"));
-
-//    ui->toolButtonPropertyRestrictionSetRemove->setFixedSize(24, 24);
-//    ui->toolButtonPropertyRestrictionSetRemove->setIconSize(QSize(24, 24));
-//    ui->toolButtonPropertyRestrictionSetRemove->setIcon(QIcon(":/images/minus.png"));
-
-//    ui->toolButtonPropertyRestrictionSetUp->setFixedSize(24, 24);
-//    ui->toolButtonPropertyRestrictionSetUp->setIconSize(QSize(24, 24));
-//    ui->toolButtonPropertyRestrictionSetUp->setIcon(QIcon(":/images/up.png"));
-
-//    ui->toolButtonPropertyRestrictionSetDown->setFixedSize(24, 24);
-//    ui->toolButtonPropertyRestrictionSetDown->setIconSize(QSize(24, 24));
-//    ui->toolButtonPropertyRestrictionSetDown->setIcon(QIcon(":/images/down.png"));
-
-
-
-
-
-//    ui->toolButtonPropertyRestrictionCountSetAdd->setFixedSize(24, 24);
-//    ui->toolButtonPropertyRestrictionCountSetAdd->setIconSize(QSize(24, 24));
-//    ui->toolButtonPropertyRestrictionCountSetAdd->setIcon(QIcon(":/images/plus.png"));
-
-//    ui->toolButtonPropertyRestrictionCountSetRemove->setFixedSize(24, 24);
-//    ui->toolButtonPropertyRestrictionCountSetRemove->setIconSize(QSize(24, 24));
-//    ui->toolButtonPropertyRestrictionCountSetRemove->setIcon(QIcon(":/images/minus.png"));
-
-//    ui->toolButtonPropertyRestrictionCountSetUp->setFixedSize(24, 24);
-//    ui->toolButtonPropertyRestrictionCountSetUp->setIconSize(QSize(24, 24));
-//    ui->toolButtonPropertyRestrictionCountSetUp->setIcon(QIcon(":/images/up.png"));
-
-//    ui->toolButtonPropertyRestrictionCountSetDown->setFixedSize(24, 24);
-//    ui->toolButtonPropertyRestrictionCountSetDown->setIconSize(QSize(24, 24));
-//    ui->toolButtonPropertyRestrictionCountSetDown->setIcon(QIcon(":/images/down.png"));
-
-
-
-
-
-//    ui->splitter->setStretchFactor(0, 0);
-//    ui->splitter->setStretchFactor(1, 1);
-
-//    connect(ui->actionExit, &QAction::triggered, qApp, &QApplication::quit);
+    setWindowTitle("parameters_composer - " + currentFileName_);
 }
 
 MainWindow::~MainWindow()
 {
-//    delete ui;
+}
+
+void MainWindow::on_NewFile_action()
+{
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, "Test", "Quit?",
+        QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+        qDebug() << "Yes was clicked";
+        QApplication::quit();
+    }
+    else {
+        qDebug() << "Yes was *not* clicked";
+    }
+}
+
+void MainWindow::on_Quit_action()
+{
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, "Test", "Quit?",
+        QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+        qDebug() << "Yes was clicked";
+        QApplication::quit();
+    }
+    else {
+        qDebug() << "Yes was *not* clicked";
+    }
+}
+
+void MainWindow::on_OpenFile_action()
+{
+    QFileDialog dialog(this);
+    dialog.setNameFilter("Parameters Compiler Files (*.yml *.yaml *.json)");
+    dialog.setAcceptMode(QFileDialog::AcceptOpen);
+
+    QStringList fileNames;
+    if (dialog.exec())
+        fileNames = dialog.selectedFiles();
+
+    if (fileNames.size() > 0)
+    {
+        qDebug() << fileNames[0];
+        if (parser_ != nullptr)
+            delete parser_;
+        parser_ = new yaml::yaml_parser(false);
+        if (parser_->parse(fileNames[0].toStdString()))
+        {
+            currentFileName_ = fileNames[0];
+            setWindowTitle("parameters_composer - " + currentFileName_);
+            yaml::file_info fi = parser_->get_file_info();
+
+            {
+                QString typeName("Main");
+                if (!tabs_.contains(typeName))
+                    tabs_[typeName] = {};
+                TabControls& tc = tabs_[typeName];
+
+                dynamic_cast<QLineEdit*>(tc.Info["ID"])->setText(QString(fi.info.yml.id.c_str()));
+                dynamic_cast<QLineEdit*>(tc.Info["DISPLAY_NAME"])->setText(QString(fi.info.yml.display_name.c_str()));
+                dynamic_cast<QLineEdit*>(tc.Info["CATEGORY"])->setText(QString(fi.info.yml.category.c_str()));
+                dynamic_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString(fi.info.yml.description.c_str()));
+                dynamic_cast<QLineEdit*>(tc.Info["PICTOGRAM"])->setText(QString(fi.info.yml.pictogram.c_str()));
+                dynamic_cast<QLineEdit*>(tc.Info["HINT"])->setText(QString(fi.info.yml.hint.c_str()));
+                dynamic_cast<QLineEdit*>(tc.Info["AUTHOR"])->setText(QString(fi.info.yml.author.c_str()));
+                dynamic_cast<QLineEdit*>(tc.Info["WIKI"])->setText(QString(fi.info.yml.wiki.c_str()));
+
+                QListWidget* listWidget = dynamic_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+                listWidget->clear();
+                for (const auto& pi : fi.parameters)
+                    listWidget->addItem(QString(pi.yml.name.c_str()));
+                if (listWidget->count() > 0)
+                    listWidget->setCurrentRow(0);
+            }
+
+            for (const auto& ti : fi.types)
+            {
+                QString typeName(ti.yml.name.c_str());
+
+                QWidget* widgetTabType = CreateTypeTabWidget(typeName);
+                dynamic_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, typeName);
+
+                if (!tabs_.contains(typeName))
+                    tabs_[typeName] = {};
+                TabControls& tc = tabs_[typeName];
+
+                dynamic_cast<QLineEdit*>(tc.Info["NAME"])->setText(QString(ti.yml.name.c_str()));
+                dynamic_cast<QLineEdit*>(tc.Info["TYPE"])->setText(QString(ti.yml.type.c_str()));
+                dynamic_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString(ti.yml.description.c_str()));
+
+                QListWidget* listWidgetValues = dynamic_cast<QListWidget*>(tc.Info["VALUES"]);
+                listWidgetValues->clear();
+                for (const auto& v : ti.yml.values)
+                    listWidgetValues->addItem(QString(v.first.c_str()) + " : " + QString(v.second.c_str()));
+
+                QListWidget* listWidgetIncludes = dynamic_cast<QListWidget*>(tc.Info["INCLUDES"]);
+                listWidgetIncludes->clear();
+                for (const auto& v : ti.yml.includes)
+                    listWidgetIncludes->addItem(QString(v.c_str()));
+
+                QListWidget* listWidget = dynamic_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+                listWidget->clear();
+                for (const auto& pi : ti.parameters)
+                    listWidget->addItem(QString(pi.yml.name.c_str()));
+                if (listWidget->count() > 0)
+                    listWidget->setCurrentRow(0);
+            }
+        }
+        else
+        {
+            QMessageBox::critical(this, "Error", "File parsing error: " + fileNames[0]);
+        }
+    }
+}
+
+void MainWindow::CreateMenu()
+{
+    QAction* newAct = new QAction(tr("&New"), this);
+    newAct->setShortcuts(QKeySequence::New);
+    newAct->setStatusTip(tr("Create a new file"));
+    connect(newAct, &QAction::triggered, this, &MainWindow::on_NewFile_action);
+
+    QAction* openAct = new QAction(tr("&Open"), this);
+    openAct->setShortcuts(QKeySequence::Open);
+    openAct->setStatusTip(tr("Open a file"));
+    connect(openAct, &QAction::triggered, this, &MainWindow::on_OpenFile_action);
+
+    QAction* quitAct = new QAction(tr("&Quit"), this);
+    quitAct->setShortcuts(QKeySequence::Quit);
+    quitAct->setStatusTip(tr("Quit application"));
+    connect(quitAct, &QAction::triggered, this, &MainWindow::on_Quit_action);
+
+    QMenu* fileMenu = menuBar()->addMenu("&File");
+    fileMenu->addAction(newAct);
+    fileMenu->addAction(openAct);
+    fileMenu->addSeparator();
+    fileMenu->addAction(quitAct);
 }
 
 void MainWindow::CreateUi()
 {
     resize(1000, 600);
+
+    CreateMenu();
+
     QTabWidget* tabWidget = new QTabWidget;
-    QWidget* widgetTabProperties = CreatePropertiesTabWidget();
-    tabWidget->addTab(widgetTabProperties, "Properties");
-    QWidget* tab2 = new QWidget(tabWidget);
-    tabWidget->addTab(tab2, "Properties2");
+    QWidget* widgetTabProperties = CreateMainTabWidget();
+    tabWidget->addTab(widgetTabProperties, "Main");
 
     setCentralWidget(tabWidget);
 }
 
-QWidget* MainWindow::CreatePropertiesTabWidget()
+QWidget* MainWindow::CreateMainTabWidget()
 {
     QWidget* widgetTabProperties = new QWidget;
 
-    QWidget* widgetSplitterInfo = CreatePropertiesTabInfoWidget();
-    QWidget* widgetSplitterPropertyList = CreatePropertiesTabPropertyListWidget();
-    QWidget* widgetSplitterProperties = CreatePropertiesTabPropertiesWidget();
+    QWidget* widgetSplitterInfo = CreateMainTabInfoWidget();
+    QWidget* widgetSplitterPropertyList = CreatePropertyListWidget("Main");
+    QWidget* widgetSplitterProperties = CreatePropertiesWidget("Main");
 
     QSplitter* tabHSplitter = new QSplitter(Qt::Horizontal);
     tabHSplitter->addWidget(widgetSplitterInfo);
@@ -130,65 +207,25 @@ QWidget* MainWindow::CreatePropertiesTabWidget()
     return widgetTabProperties;
 }
 
-QWidget* MainWindow::CreatePropertiesTabInfoWidget()
+QWidget* MainWindow::CreateMainTabInfoWidget()
 {
     QGridLayout* gridLayoutInfo = new QGridLayout;
  
+    QString typeName("Main");
+    if (!tabs_.contains(typeName))
+        tabs_[typeName] = {};
+    TabControls& tc = tabs_[typeName];
+
     int index = 0;
-    AddPropertySubheader(gridLayoutInfo, "INFO", "font-weight: bold; font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutInfo, "ID", index++);
-    AddLineEditProperty(gridLayoutInfo, "DISPLAY_NAME", index++);
-    AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++);
-    AddLineEditProperty(gridLayoutInfo, "CATEGORY", index++);
-    AddLineEditProperty(gridLayoutInfo, "PICTOGRAM", index++);
-    AddLineEditProperty(gridLayoutInfo, "HINT", index++);
-    AddLineEditProperty(gridLayoutInfo, "AUTHOR", index++);
-    AddLineEditProperty(gridLayoutInfo, "WIKI", index++);
-
-    //QLabel* labelInfoHeader = new QLabel;
-    //labelInfoHeader->setStyleSheet("font-weight: bold; font-size: 14px");
-    //labelInfoHeader->setText("INFO");
-    //gridLayoutInfo->addWidget(labelInfoHeader, 0, 0, 1, 2, Qt::AlignCenter);
-
-    //gridLayoutInfo->addWidget(new QLabel("ID"), 1, 0);
-    //QLineEdit* lineEditInfoId = new QLineEdit;
-    //lineEditInfoId->setObjectName("lineEditInfoId");
-    //gridLayoutInfo->addWidget(lineEditInfoId, 1, 1);
-
-    //gridLayoutInfo->addWidget(new QLabel("DISPLAY_NAME"), 2, 0);
-    //QLineEdit* lineEditInfoDisplayName = new QLineEdit;
-    //lineEditInfoDisplayName->setObjectName("lineEditInfoDisplayName");
-    //gridLayoutInfo->addWidget(lineEditInfoDisplayName, 2, 1);
-
-    //gridLayoutInfo->addWidget(new QLabel("DESCRIPTION"), 3, 0);
-    //QPlainTextEdit* lineEditInfoDescription = new QPlainTextEdit;
-    //lineEditInfoDescription->setObjectName("lineEditInfoDescription");
-    //gridLayoutInfo->addWidget(lineEditInfoDescription, 3, 1);
-
-    //gridLayoutInfo->addWidget(new QLabel("CATEGORY"), 4, 0);
-    //QLineEdit* lineEditInfoCategory = new QLineEdit;
-    //lineEditInfoCategory->setObjectName("lineEditInfoCategory");
-    //gridLayoutInfo->addWidget(lineEditInfoCategory, 4, 1);
-
-    //gridLayoutInfo->addWidget(new QLabel("PICTOGRAM"), 5, 0);
-    //QLineEdit* lineEditInfoPictogram = new QLineEdit;
-    //lineEditInfoPictogram->setObjectName("lineEditInfoPictogram");
-    //gridLayoutInfo->addWidget(lineEditInfoPictogram, 5, 1);
-
-    //gridLayoutInfo->addWidget(new QLabel("HINT"), 6, 0);
-    //QLineEdit* lineEditInfoHint = new QLineEdit;
-    //lineEditInfoHint->setObjectName("lineEditInfoHint");
-    //gridLayoutInfo->addWidget(lineEditInfoHint, 6, 1);
-
-    //gridLayoutInfo->addWidget(new QLabel("AUTHOR"), 7, 0);
-    //QLineEdit* lineEditInfoAuthor = new QLineEdit;
-    //lineEditInfoAuthor->setObjectName("lineEditInfoAuthor");
-    //gridLayoutInfo->addWidget(lineEditInfoAuthor, 7, 1);
-
-    //gridLayoutInfo->addWidget(new QLabel("WIKI"), 8, 0);
-    //QLineEdit* lineEditInfoWiki = new QLineEdit;
-    //lineEditInfoWiki->setObjectName("lineEditInfoWiki");
-    //gridLayoutInfo->addWidget(lineEditInfoWiki, 8, 1);
+    AddPropertySubheader(gridLayoutInfo, "INFO", "font-weight: bold; font-size: 14px", index++, tc.Info);
+    AddLineEditProperty(gridLayoutInfo, "ID", index++, tc.Info);
+    AddLineEditProperty(gridLayoutInfo, "DISPLAY_NAME", index++, tc.Info);
+    AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++, tc.Info);
+    AddLineEditProperty(gridLayoutInfo, "CATEGORY", index++, tc.Info);
+    AddLineEditProperty(gridLayoutInfo, "PICTOGRAM", index++, tc.Info);
+    AddLineEditProperty(gridLayoutInfo, "HINT", index++, tc.Info);
+    AddLineEditProperty(gridLayoutInfo, "AUTHOR", index++, tc.Info);
+    AddLineEditProperty(gridLayoutInfo, "WIKI", index++, tc.Info);
 
     QWidget* widgetSplitterInfo = new QWidget;
     widgetSplitterInfo->setLayout(gridLayoutInfo);
@@ -197,51 +234,58 @@ QWidget* MainWindow::CreatePropertiesTabInfoWidget()
     return widgetSplitterInfo;
 }
 
-QWidget* MainWindow::CreatePropertiesTabPropertyListWidget()
+QWidget* MainWindow::CreatePropertyListWidget(QString typeName)
 {
     QLabel* labelPropertyListHeader = new QLabel;
     labelPropertyListHeader->setStyleSheet("font-weight: bold; font-size: 14px");
     labelPropertyListHeader->setText("PROPERITES");
 
-    QWidget* widgetPropertyListButtons = CreateToolBoxListControlWidget(32, "PropertiesTab", "PropertyList");
+    QWidget* widgetPropertyListButtons = CreateListControlWidget(32, "PropertiesTab", "PropertyList", typeName);
+
+    QListWidget* listWidget = new QListWidget;
+    listWidget->setProperty("typeName", typeName);
+    connect(listWidget, &QListWidget::currentItemChanged, this, &MainWindow::on_listWidgetProperties_currentItemChanged);
 
     QVBoxLayout* vBoxLayoutPropertyList = new QVBoxLayout;
     vBoxLayoutPropertyList->addWidget(labelPropertyListHeader, 0, Qt::AlignCenter);
     vBoxLayoutPropertyList->addWidget(widgetPropertyListButtons);
-    vBoxLayoutPropertyList->addWidget(new QListWidget, 1);
+    vBoxLayoutPropertyList->addWidget(listWidget, 1);
     vBoxLayoutPropertyList->addStretch();
 
     QWidget* widgetSplitterPropertyList = new QWidget;
     widgetSplitterPropertyList->setLayout(vBoxLayoutPropertyList);
 
+    TabControls& tc = tabs_[typeName];
+    tc.PropertyList["PROPERTIES"] = listWidget;
+
     return widgetSplitterPropertyList;
 }
 
-void MainWindow::AddLineEditProperty(QGridLayout* gridLayout, QString name, int index)
+void MainWindow::AddLineEditProperty(QGridLayout* gridLayout, QString name, int index, QMap<QString, QObject*>& mapControls)
 {
     gridLayout->addWidget(new QLabel(name), index, 0);
     QLineEdit* lineEdit = new QLineEdit;
-    //lineEdit->setObjectName("lineEditPropertiesName");
     gridLayout->addWidget(lineEdit, index, 1);
+    mapControls[name] = lineEdit;
 }
 
-void MainWindow::AddPlainTextEditProperty(QGridLayout* gridLayout, QString name, int index)
+void MainWindow::AddPlainTextEditProperty(QGridLayout* gridLayout, QString name, int index, QMap<QString, QObject*>& mapControls)
 {
     gridLayout->addWidget(new QLabel(name), index, 0);
     QPlainTextEdit* plainTextEdit = new QPlainTextEdit;
-    //plainTextEdit->setObjectName("plainTextEditPropertiesName");
     gridLayout->addWidget(plainTextEdit, index, 1);
+    mapControls[name] = plainTextEdit;
 }
 
-void MainWindow::AddCheckBoxProperty(QGridLayout* gridLayout, QString name, int index)
+void MainWindow::AddCheckBoxProperty(QGridLayout* gridLayout, QString name, int index, QMap<QString, QObject*>& mapControls)
 {
     gridLayout->addWidget(new QLabel(name), index, 0);
     QCheckBox* checkBox = new QCheckBox;
-    //checkBox->setObjectName("checkBoxPropertiesName");
     gridLayout->addWidget(checkBox, index, 1);
+    mapControls[name] = checkBox;
 }
 
-void MainWindow::AddPropertySubheader(QGridLayout* gridLayout, QString text, QString style, int index)
+void MainWindow::AddPropertySubheader(QGridLayout* gridLayout, QString text, QString style, int index, QMap<QString, QObject*>& mapControls)
 {
     QLabel* label = new QLabel;
     label->setStyleSheet(style);
@@ -249,137 +293,52 @@ void MainWindow::AddPropertySubheader(QGridLayout* gridLayout, QString text, QSt
     gridLayout->addWidget(label, index, 0, 1, 2, Qt::AlignCenter);
 }
 
-void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int index, QString tabId, QString listControlId)
+void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int index, QString tabId, QString listControlId, QMap<QString, QObject*>& mapControls, QString typeName)
 {
-    QWidget* widgetPropertiesRestrictionsSetButtons = CreateToolBoxListControlWidget(24, tabId, listControlId);
+    QWidget* widgetPropertiesRestrictionsSetButtons = CreateListControlWidget(24, tabId, listControlId, typeName);
+    QListWidget* listWidget = new QListWidget;
+    //listWidget->setProperty("typeName", typeName);
     QVBoxLayout* vBoxLayoutPropertiesRestrictionsSet = new QVBoxLayout;
     vBoxLayoutPropertiesRestrictionsSet->addWidget(widgetPropertiesRestrictionsSetButtons);
-    vBoxLayoutPropertiesRestrictionsSet->addWidget(new QListWidget, 1);
+    vBoxLayoutPropertiesRestrictionsSet->addWidget(listWidget, 1);
     vBoxLayoutPropertiesRestrictionsSet->addStretch();
     vBoxLayoutPropertiesRestrictionsSet->setMargin(0);
     QWidget* widgetPropertiesRestrictionsSet = new QWidget;
     widgetPropertiesRestrictionsSet->setLayout(vBoxLayoutPropertiesRestrictionsSet);
     gridLayout->addWidget(new QLabel(name), index, 0);
     gridLayout->addWidget(widgetPropertiesRestrictionsSet, index, 1);
+    mapControls[name] = listWidget;
 }
 
-QWidget* MainWindow::CreatePropertiesTabPropertiesWidget()
+QWidget* MainWindow::CreatePropertiesWidget(QString typeName)
 {
     QGridLayout* gridLayoutProperties = new QGridLayout;
 
+    if (!tabs_.contains(typeName))
+        tabs_[typeName] = {};
+    TabControls& tc = tabs_[typeName];
+
     int index = 0;
-    AddLineEditProperty(gridLayoutProperties, "NAME", index++);
-    AddLineEditProperty(gridLayoutProperties, "TYPE", index++);
-    AddLineEditProperty(gridLayoutProperties, "DISPLAY_NAME", index++);
-    AddPlainTextEditProperty(gridLayoutProperties, "DESCRIPTION", index++);
-    AddCheckBoxProperty(gridLayoutProperties, "REQUIRED", index++);
-    AddLineEditProperty(gridLayoutProperties, "DEFAULT", index++);
-    AddLineEditProperty(gridLayoutProperties, "HINT", index++);
-    AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (base)", "font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutProperties, "MIN", index++);
-    AddLineEditProperty(gridLayoutProperties, "MAX", index++);
-    AddListProperty(gridLayoutProperties, "SET", index++, "PropertiesTab", "RestrictionsSet");
-    AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (array)", "font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutProperties, "MIN_COUNT", index++);
-    AddLineEditProperty(gridLayoutProperties, "MAX_COUNT", index++);
-    AddListProperty(gridLayoutProperties, "SET_COUNT", index++, "PropertiesTab", "RestrictionsSetCount");
-    AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (unit)", "font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutProperties, "CATEGORY", index++);
-    AddListProperty(gridLayoutProperties, "IDS", index++, "PropertiesTab", "RestrictionsIds");
-    AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (path)", "font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutProperties, "MAX_LENGTH", index++);
-
-
-    //gridLayoutProperties->addWidget(new QLabel("NAME"), 0, 0);
-    //QLineEdit* lineEditPropertiesName = new QLineEdit;
-    //lineEditPropertiesName->setObjectName("lineEditPropertiesName");
-    //gridLayoutProperties->addWidget(lineEditPropertiesName, 0, 1);
-
-    //gridLayoutProperties->addWidget(new QLabel("TYPE"), 1, 0);
-    //QLineEdit* lineEditPropertiesType = new QLineEdit;
-    //lineEditPropertiesType->setObjectName("lineEditPropertiesType");
-    //gridLayoutProperties->addWidget(lineEditPropertiesType, 1, 1);
-
-    //gridLayoutProperties->addWidget(new QLabel("DISPLAY_NAME"), 2, 0);
-    //QLineEdit* lineEditPropertiesDisplayName = new QLineEdit;
-    //lineEditPropertiesDisplayName->setObjectName("lineEditPropertiesDisplayName");
-    //gridLayoutProperties->addWidget(lineEditPropertiesDisplayName, 2, 1);
-
-    //gridLayoutProperties->addWidget(new QLabel("DESCRIPTION"), 3, 0);
-    //QPlainTextEdit* lineEditPropertiesDescription = new QPlainTextEdit;
-    //lineEditPropertiesDescription->setObjectName("lineEditPropertiesDescription");
-    //gridLayoutProperties->addWidget(lineEditPropertiesDescription, 3, 1);
-
-    //gridLayoutProperties->addWidget(new QLabel("REQUIRED"), 4, 0);
-    //QCheckBox* checkBoxPropertiesRequired = new QCheckBox;
-    //checkBoxPropertiesRequired->setObjectName("checkBoxPropertiesRequired");
-    //gridLayoutProperties->addWidget(checkBoxPropertiesRequired, 4, 1);
-
-    //gridLayoutProperties->addWidget(new QLabel("DEFAULT"), 5, 0);
-    //QLineEdit* lineEditPropertiesDefault = new QLineEdit;
-    //lineEditPropertiesDefault->setObjectName("lineEditPropertiesDefault");
-    //gridLayoutProperties->addWidget(lineEditPropertiesDefault, 5, 1);
-
-    //gridLayoutProperties->addWidget(new QLabel("HINT"), 6, 0);
-    //QLineEdit* lineEditPropertiesHint = new QLineEdit;
-    //lineEditPropertiesHint->setObjectName("lineEditPropertiesHint");
-    //gridLayoutProperties->addWidget(lineEditPropertiesHint, 6, 1);
-
-    //QLabel* labelPropertiesHeader = new QLabel;
-    //labelPropertiesHeader->setStyleSheet("font-size: 14px");
-    //labelPropertiesHeader->setText("RESTRICTIONS (base)");
-    //gridLayoutProperties->addWidget(labelPropertiesHeader, 7, 0, 1, 2, Qt::AlignCenter);
-
-    //gridLayoutProperties->addWidget(new QLabel("MIN"), 8, 0);
-    //QLineEdit* lineEditPropertiesRestrictionsMin = new QLineEdit;
-    //lineEditPropertiesRestrictionsMin->setObjectName("lineEditPropertiesRestrictionsMin");
-    //gridLayoutProperties->addWidget(lineEditPropertiesRestrictionsMin, 8, 1);
-
-    //gridLayoutProperties->addWidget(new QLabel("MAX"), 9, 0);
-    //QLineEdit* lineEditPropertiesRestrictionsMax = new QLineEdit;
-    //lineEditPropertiesRestrictionsMax->setObjectName("lineEditPropertiesRestrictionsMax");
-    //gridLayoutProperties->addWidget(lineEditPropertiesRestrictionsMax, 9, 1);
-
-    //QWidget* widgetPropertiesRestrictionsSetButtons = CreateToolBoxListControlWidget(24, "PropertiesTab", "RestrictionsSet");
-    //QVBoxLayout* vBoxLayoutPropertiesRestrictionsSet = new QVBoxLayout;
-    //vBoxLayoutPropertiesRestrictionsSet->addWidget(widgetPropertiesRestrictionsSetButtons);
-    //vBoxLayoutPropertiesRestrictionsSet->addWidget(new QListWidget, 1);
-    //vBoxLayoutPropertiesRestrictionsSet->addStretch();
-    //vBoxLayoutPropertiesRestrictionsSet->setMargin(0);
-    //QWidget* widgetPropertiesRestrictionsSet = new QWidget;
-    //widgetPropertiesRestrictionsSet->setLayout(vBoxLayoutPropertiesRestrictionsSet);
-    //gridLayoutProperties->addWidget(new QLabel("SET"), 10, 0);
-    //gridLayoutProperties->addWidget(widgetPropertiesRestrictionsSet, 10, 1);
-
-    //QLabel* labelPropertiesRestrictionUnitHeader = new QLabel;
-    //labelPropertiesRestrictionUnitHeader->setStyleSheet("font-size: 14px");
-    //labelPropertiesRestrictionUnitHeader->setText("RESTRICTIONS (unit)");
-    //gridLayoutProperties->addWidget(labelPropertiesRestrictionUnitHeader, 11, 0, 1, 2, Qt::AlignCenter);
-
-    //gridLayoutProperties->addWidget(new QLabel("MIN_COUNT"), 11, 0);
-    //QLineEdit* lineEditPropertiesRestrictionsMinCount = new QLineEdit;
-    //lineEditPropertiesRestrictionsMinCount->setObjectName("lineEditPropertiesRestrictionsMinCount");
-    //gridLayoutProperties->addWidget(lineEditPropertiesRestrictionsMinCount, 11, 1);
-
-    //gridLayoutProperties->addWidget(new QLabel("MAX_COUNT"), 12, 0);
-    //QLineEdit* lineEditPropertiesRestrictionsMaxCount = new QLineEdit;
-    //lineEditPropertiesRestrictionsMaxCount->setObjectName("lineEditPropertiesRestrictionsMaxCount");
-    //gridLayoutProperties->addWidget(lineEditPropertiesRestrictionsMaxCount, 12, 1);
-
-    //QWidget* widgetPropertiesRestrictionsSetCountButtons = CreateToolBoxListControlWidget(24, "PropertiesTab", "RestrictionsSetCount");
-    //QVBoxLayout* vBoxLayoutPropertiesRestrictionsSetCount = new QVBoxLayout;
-    //vBoxLayoutPropertiesRestrictionsSetCount->addWidget(widgetPropertiesRestrictionsSetCountButtons);
-    //vBoxLayoutPropertiesRestrictionsSetCount->addWidget(new QListWidget, 1);
-    //vBoxLayoutPropertiesRestrictionsSetCount->addStretch();
-    //vBoxLayoutPropertiesRestrictionsSetCount->setMargin(0);
-    //QWidget* widgetPropertiesRestrictionsSetCount = new QWidget;
-    //widgetPropertiesRestrictionsSetCount->setLayout(vBoxLayoutPropertiesRestrictionsSetCount);
-    //gridLayoutProperties->addWidget(new QLabel("SET_COUNT"), 13, 0);
-    //gridLayoutProperties->addWidget(widgetPropertiesRestrictionsSetCount, 13, 1);
-
-
-
-
+    AddLineEditProperty(gridLayoutProperties, "NAME", index++, tc.Properties);
+    AddLineEditProperty(gridLayoutProperties, "TYPE", index++, tc.Properties);
+    AddLineEditProperty(gridLayoutProperties, "DISPLAY_NAME", index++, tc.Properties);
+    AddPlainTextEditProperty(gridLayoutProperties, "DESCRIPTION", index++, tc.Properties);
+    AddCheckBoxProperty(gridLayoutProperties, "REQUIRED", index++, tc.Properties);
+    AddLineEditProperty(gridLayoutProperties, "DEFAULT", index++, tc.Properties);
+    AddLineEditProperty(gridLayoutProperties, "HINT", index++, tc.Properties);
+    AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (base)", "font-size: 14px", index++, tc.Properties);
+    AddLineEditProperty(gridLayoutProperties, "MIN", index++, tc.Properties);
+    AddLineEditProperty(gridLayoutProperties, "MAX", index++, tc.Properties);
+    AddListProperty(gridLayoutProperties, "SET", index++, "PropertiesTab", "RestrictionsSet", tc.Properties, typeName);
+    AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (array)", "font-size: 14px", index++, tc.Properties);
+    AddLineEditProperty(gridLayoutProperties, "MIN_COUNT", index++, tc.Properties);
+    AddLineEditProperty(gridLayoutProperties, "MAX_COUNT", index++, tc.Properties);
+    AddListProperty(gridLayoutProperties, "SET_COUNT", index++, "PropertiesTab", "RestrictionsSetCount", tc.Properties, typeName);
+    AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (unit)", "font-size: 14px", index++, tc.Properties);
+    AddLineEditProperty(gridLayoutProperties, "CATEGORY", index++, tc.Properties);
+    AddListProperty(gridLayoutProperties, "IDS", index++, "PropertiesTab", "RestrictionsIds", tc.Properties, typeName);
+    AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (path)", "font-size: 14px", index++, tc.Properties);
+    AddLineEditProperty(gridLayoutProperties, "MAX_LENGTH", index++, tc.Properties);
 
     gridLayoutProperties->setRowStretch(gridLayoutProperties->rowCount(), 1);
 
@@ -394,7 +353,7 @@ QWidget* MainWindow::CreatePropertiesTabPropertiesWidget()
     return scrollAreaProperties;
 }
 
-QWidget* MainWindow::CreateToolBoxListControlWidget(int buttonSize, QString tabId, QString listControlId)
+QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString tabId, QString listControlId, QString typeName)
 {
     QHBoxLayout* hBoxLayoutPropertyListButtons = new QHBoxLayout;
     hBoxLayoutPropertyListButtons->setMargin(0);
@@ -448,13 +407,13 @@ QWidget* MainWindow::CreateToolBoxListControlWidget(int buttonSize, QString tabI
     return widgetPropertyListButtons;
 }
 
-QWidget* MainWindow::CreateYmlTypeTabWidget()
+QWidget* MainWindow::CreateTypeTabWidget(QString typeName)
 {
     QWidget* widgetTabProperties = new QWidget;
 
-    QWidget* widgetSplitterInfo = CreatePropertiesTabInfoWidget();
-    QWidget* widgetSplitterPropertyList = CreatePropertiesTabPropertyListWidget();
-    QWidget* widgetSplitterProperties = CreatePropertiesTabPropertiesWidget();
+    QWidget* widgetSplitterInfo = CreateTypeTabInfoWidget(typeName);
+    QWidget* widgetSplitterPropertyList = CreatePropertyListWidget(typeName);
+    QWidget* widgetSplitterProperties = CreatePropertiesWidget(typeName);
 
     QSplitter* tabHSplitter = new QSplitter(Qt::Horizontal);
     tabHSplitter->addWidget(widgetSplitterInfo);
@@ -471,14 +430,30 @@ QWidget* MainWindow::CreateYmlTypeTabWidget()
     return widgetTabProperties;
 }
 
-QWidget* MainWindow::CreateYmlTypeTabInfoWidget()
+QWidget* MainWindow::CreateTypeTabInfoWidget(QString typeName)
 {
+    QGridLayout* gridLayoutInfo = new QGridLayout;
 
-}
+    if (!tabs_.contains(typeName))
+        tabs_[typeName] = {};
+    TabControls& tc = tabs_[typeName];
 
-QWidget* MainWindow::CreateCppTypeTabWidget()
-{
+    int index = 0;
+    AddPropertySubheader(gridLayoutInfo, "TYPES", "font-weight: bold; font-size: 14px", index++, tc.Info);
+    AddLineEditProperty(gridLayoutInfo, "NAME", index++, tc.Info);
+    AddLineEditProperty(gridLayoutInfo, "TYPE", index++, tc.Info);
+    AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++, tc.Info);
+    AddListProperty(gridLayoutInfo, "VALUES", index++, typeName, "Values", tc.Info, typeName);
+    AddListProperty(gridLayoutInfo, "INCLUDES", index++, typeName, "Includes", tc.Info, typeName);
 
+    //AddLineEditProperty(gridLayoutInfo, "VALUES", index++, tc.Info);
+    //AddLineEditProperty(gridLayoutInfo, "INCLUDES", index++, tc.Info);
+
+    QWidget* widgetSplitterInfo = new QWidget;
+    widgetSplitterInfo->setLayout(gridLayoutInfo);
+    gridLayoutInfo->setRowStretch(gridLayoutInfo->rowCount(), 1);
+
+    return widgetSplitterInfo;
 }
 
 void MainWindow::on_toolButton_clicked()
@@ -507,9 +482,65 @@ void MainWindow::on_toolButtonAddProperty_clicked()
 
 void MainWindow::on_listWidgetProperties_currentItemChanged(QListWidgetItem *current, QListWidgetItem *previous)
 {
-    if(current != 0)
-        qDebug() << current->text();
+    QListWidget* list = dynamic_cast<QListWidget*>(sender());
+    if (!list)
+        return;
 
+    QString typeName = list->property("typeName").toString();
+
+    yaml::file_info fi = parser_->get_file_info();
+    yaml::parameter_info pi{};
+    if (current != nullptr)
+    {
+        std::vector<yaml::parameter_info>& pis = fi.parameters;
+        if (typeName != "Main")
+        {
+            for (const auto& t : fi.types)
+                if (QString(t.yml.name.c_str()) == typeName)
+                {
+                    pis = t.parameters;
+                    break;
+                }
+        }
+
+        for (const auto& p : pis)
+            if (QString(p.yml.name.c_str()) == current->text())
+                pi = p;
+    }
+
+    if (!tabs_.contains(typeName))
+        tabs_[typeName] = {};
+    TabControls& tc = tabs_[typeName];
+
+    dynamic_cast<QLineEdit*>(tc.Properties["NAME"])->setText(QString(pi.yml.name.c_str()));
+    dynamic_cast<QLineEdit*>(tc.Properties["TYPE"])->setText(QString(pi.yml.type.c_str()));
+    dynamic_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->setText(QString(pi.yml.display_name.c_str()));
+    dynamic_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->setPlainText(QString(pi.yml.description.c_str()));
+    dynamic_cast<QCheckBox*>(tc.Properties["REQUIRED"])->setChecked(pi.is_required);
+    dynamic_cast<QLineEdit*>(tc.Properties["DEFAULT"])->setText(QString(pi.yml.default_.c_str()));
+    dynamic_cast<QLineEdit*>(tc.Properties["HINT"])->setText(QString(pi.yml.hint.c_str()));
+
+    dynamic_cast<QLineEdit*>(tc.Properties["MIN"])->setText(QString(pi.yml.restrictions.min.c_str()));
+    dynamic_cast<QLineEdit*>(tc.Properties["MAX"])->setText(QString(pi.yml.restrictions.max.c_str()));
+    QListWidget* listWidgetSet = dynamic_cast<QListWidget*>(tc.Properties["SET"]);
+    listWidgetSet->clear();
+    for (const auto& s : pi.yml.restrictions.set_)
+        listWidgetSet->addItem(QString(s.c_str()));
+
+    dynamic_cast<QLineEdit*>(tc.Properties["MIN_COUNT"])->setText(QString(pi.yml.restrictions.min_count.c_str()));
+    dynamic_cast<QLineEdit*>(tc.Properties["MAX_COUNT"])->setText(QString(pi.yml.restrictions.max_count.c_str()));
+    QListWidget* listWidgetSetCount = dynamic_cast<QListWidget*>(tc.Properties["SET_COUNT"]);
+    listWidgetSetCount->clear();
+    for (const auto& s : pi.yml.restrictions.set_count)
+        listWidgetSetCount->addItem(QString(s.c_str()));
+
+    dynamic_cast<QLineEdit*>(tc.Properties["CATEGORY"])->setText(QString(pi.yml.restrictions.category.c_str()));
+    QListWidget* listWidgetIds = dynamic_cast<QListWidget*>(tc.Properties["IDS"]);
+    listWidgetIds->clear();
+    for (const auto& s : pi.yml.restrictions.ids)
+        listWidgetIds->addItem(QString(s.c_str()));
+
+    dynamic_cast<QLineEdit*>(tc.Properties["MAX_LENGTH"])->setText(QString(pi.yml.restrictions.max_length.c_str()));
 }
 
 
