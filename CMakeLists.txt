@@ -5,8 +5,8 @@ project(parameters_composer VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-# include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)  # Includes the contents of the conanbuildinfo.cmake file.
-# conan_basic_setup()  # Prepares the CMakeList.txt for Conan.
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)  # Includes the contents of the conanbuildinfo.cmake file.
+conan_basic_setup()  # Prepares the CMakeList.txt for Conan.
 
 find_package(Qt5 COMPONENTS Core Gui Widgets REQUIRED)
 
@@ -28,8 +28,8 @@ endif()
 
 add_executable(${PROJECT_NAME} ${PROJ_HDRS} ${PROJ_SRCS} ${PROJ_RES} ${PROJ_UI})
 
-# target_link_libraries(${PROJECT_NAME} Qt5::Core Qt5::Gui Qt5::Widgets ${CONAN_LIBS})
-target_link_libraries(${PROJECT_NAME} Qt5::Core Qt5::Gui Qt5::Widgets)
+target_link_libraries(${PROJECT_NAME} Qt5::Core Qt5::Gui Qt5::Widgets ${CONAN_LIBS})
+#target_link_libraries(${PROJECT_NAME} Qt5::Core Qt5::Gui Qt5::Widgets)
 
 if(WIN32)
 	target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:/SUBSYSTEM:CONSOLE>)
