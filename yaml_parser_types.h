@@ -39,6 +39,7 @@ namespace yaml
 			std::string type;
 			std::string name;
 			// Optional members from yml
+			bool required;
 			std::string default_;
 			std::string display_name;
 			std::string description;

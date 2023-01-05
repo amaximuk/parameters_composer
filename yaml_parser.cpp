@@ -1178,6 +1178,37 @@ bool yaml_parser::get_parameter_info(const YAML::Node& node, const std::vector<t
 		pi.yml.description = pi.yml.display_name;
 	if (!try_get_yaml_value<std::string>(node, "HINT", pi.yml.hint))
 		pi.yml.hint = "";
+	if (!try_get_yaml_value<bool>(node, "REQUIRED", pi.yml.required))
+		pi.yml.required = true;
+
+	YAML::Node restrictions = node["RESTRICTIONS"];
+	if (restrictions)
+	{
+		pi.has_restrictions = true;
+		if (!try_get_yaml_value<std::string>(restrictions, "MIN", pi.yml.restrictions.min))
+			pi.yml.restrictions.min = "";
+		if (!try_get_yaml_value<std::string>(restrictions, "MAX", pi.yml.restrictions.max))
+			pi.yml.restrictions.max = "";
+		YAML::Node required_set = restrictions["SET"];
+		for (const auto& v : required_set)
+			pi.yml.restrictions.set_.push_back(v.as<std::string>());
+		if (!try_get_yaml_value<std::string>(restrictions, "MIN_COUNT", pi.yml.restrictions.min_count))
+			pi.yml.restrictions.min_count = "";
+		if (!try_get_yaml_value<std::string>(restrictions, "MAX_COUNT", pi.yml.restrictions.max_count))
+			pi.yml.restrictions.max_count = "";
+		YAML::Node required_set_count = restrictions["SET_COUNT"];
+		for (const auto& v : required_set_count)
+			pi.yml.restrictions.set_count.push_back(v.as<std::string>());
+		if (!try_get_yaml_value<std::string>(restrictions, "CATEGORY", pi.yml.restrictions.category))
+			pi.yml.restrictions.category = "";
+		YAML::Node required_ids = restrictions["IDS"];
+		for (const auto& v : required_ids)
+			pi.yml.restrictions.ids.push_back(v.as<std::string>());
+		if (!try_get_yaml_value<std::string>(restrictions, "MAX_LENGTH", pi.yml.restrictions.max_length))
+			pi.yml.restrictions.max_length = "";
+	}
+	else
+		pi.has_restrictions = false;
 
 	// Evaluated members
 	pi.type = pi.yml.type;
@@ -1289,8 +1320,7 @@ bool yaml_parser::get_parameter_info(const YAML::Node& node, const std::vector<t
 		pi.type_class = pi.item_type_class;
 	}
 
-	if (!try_get_yaml_value<bool>(node, "REQUIRED", pi.is_required))
-		pi.is_required = true;
+	pi.is_required = pi.yml.required;
 
 	if (pi.is_required)
 	{
@@ -1309,35 +1339,6 @@ bool yaml_parser::get_parameter_info(const YAML::Node& node, const std::vector<t
 			pi.is_optional = true;
 		}
 	}
-
-	YAML::Node restrictions = node["RESTRICTIONS"];
-	if (restrictions)
-	{
-		pi.has_restrictions = true;
-		if (!try_get_yaml_value<std::string>(restrictions, "MIN", pi.yml.restrictions.min))
-			pi.yml.restrictions.min = "";
-		if (!try_get_yaml_value<std::string>(restrictions, "MAX", pi.yml.restrictions.max))
-			pi.yml.restrictions.max = "";
-		YAML::Node required_set = restrictions["SET"];
-		for (const auto& v : required_set)
-			pi.yml.restrictions.set_.push_back(v.as<std::string>());
-		if (!try_get_yaml_value<std::string>(restrictions, "MIN_COUNT", pi.yml.restrictions.min_count))
-			pi.yml.restrictions.min_count = "";
-		if (!try_get_yaml_value<std::string>(restrictions, "MAX_COUNT", pi.yml.restrictions.max_count))
-			pi.yml.restrictions.max_count = "";
-		YAML::Node required_set_count = restrictions["SET_COUNT"];
-		for (const auto& v : required_set_count)
-			pi.yml.restrictions.set_count.push_back(v.as<std::string>());
-		if (!try_get_yaml_value<std::string>(restrictions, "CATEGORY", pi.yml.restrictions.category))
-			pi.yml.restrictions.category = "";
-		YAML::Node required_ids = restrictions["IDS"];
-		for (const auto& v : required_ids)
-			pi.yml.restrictions.ids.push_back(v.as<std::string>());
-		if (!try_get_yaml_value<std::string>(restrictions, "MAX_LENGTH", pi.yml.restrictions.max_length))
-			pi.yml.restrictions.max_length = "";
-	}
-	else
-		pi.has_restrictions = false;
 
 	return true;
 }

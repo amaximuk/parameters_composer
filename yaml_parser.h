@@ -23,10 +23,6 @@ namespace yaml
 
 	public:
 		yaml_parser(bool is_batch);
-		~yaml_parser()
-		{
-			qDebug() << "~";
-		}
 
 	public:
 		bool parse(const std::string& filename);
