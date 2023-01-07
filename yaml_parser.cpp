@@ -89,6 +89,16 @@ bool yaml_parser::get_html(std::list<std::string>& html)
 	return true;
 }
 
+bool yaml_parser::is_inner_type(std::string name)
+{
+	if (system_type_names_.find(name) != system_type_names_.end())
+		return true;
+	if (cpp_type_names_.find(name) != cpp_type_names_.end())
+		return true;
+	
+	return false;
+}
+
 template <typename... Args>
 std::string yaml_parser::make_string(Args&&... args)
 {

@@ -167,7 +167,7 @@ void MainWindow::on_OpenFile_action()
                 QListWidget* listWidgetValues = dynamic_cast<QListWidget*>(tc.Info["VALUES"]);
                 listWidgetValues->clear();
                 for (const auto& v : ti.yml.values)
-                    listWidgetValues->addItem(QString(v.first.c_str()) + " : " + QString(v.second.c_str()));
+                    listWidgetValues->addItem(QString(v.first.c_str()) + " -> " + QString(v.second.c_str()));
 
                 QListWidget* listWidgetIncludes = dynamic_cast<QListWidget*>(tc.Info["INCLUDES"]);
                 listWidgetIncludes->clear();
@@ -208,46 +208,18 @@ void MainWindow::on_SaveAsFile_action()
     {
         qDebug() << fileNames[0];
 
-        // Validate
-        TabControls& tc = GetTabControls("Main");
-
-        if (dynamic_cast<QLineEdit*>(tc.Info["ID"])->text() == "")
-        {
-            QMessageBox::critical(this, "Error", "Main ID required");
+        if (!SaveCurrent())
             return;
-        }
 
+        if (!Validate())
+            return;
 
-
-
-        for (const auto& tab : tabs_)
-        {
-            yaml::parameter_info pi{};
-            ReadCurrentParameters(tab.Name, pi);
-            qDebug() << QString(pi.yml.name.c_str());
-        }
-
-
-
-
-
-
-
-
-
+        if (!RearrangeTypes())
+            return;
 
         YAML::Emitter emitter;
-        emitter << YAML::BeginMap;
-        emitter << YAML::Key << "INFO";
-        emitter << YAML::Value << YAML::BeginMap;
-        
-        emitter << YAML::Key << "ID";
-        emitter << YAML::Value << "aaaaaaaa";
-        
-        emitter << YAML::EndMap;
-//        emitter << YAML::Value << YAML::BeginSeq << "Sasha" << "Malia" << YAML::EndSeq;
-        emitter << YAML::EndMap;
-
+        if (!WriteCurrent(emitter))
+            return;
 
         QFile file(fileNames[0]);
         if (file.open(QIODevice::ReadWrite))
@@ -448,40 +420,310 @@ bool MainWindow::ReadCurrentParameters(QString type, yaml::parameter_info& pi)
 {
     TabControls& tc = GetTabControls(type);
 
-    yaml::parameter_info pip{};
-    pip.yml.name = dynamic_cast<QLineEdit*>(tc.Properties["NAME"])->text().toStdString();
-    pip.yml.type = dynamic_cast<QLineEdit*>(tc.Properties["TYPE"])->text().toStdString();
-    pip.yml.display_name = dynamic_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->text().toStdString();
-    pip.yml.description = dynamic_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->toPlainText().toStdString();
-    pip.yml.required = dynamic_cast<QCheckBox*>(tc.Properties["REQUIRED"])->isChecked();
-    pip.yml.default_ = dynamic_cast<QLineEdit*>(tc.Properties["DEFAULT"])->text().toStdString();
-    pip.yml.hint = dynamic_cast<QLineEdit*>(tc.Properties["HINT"])->text().toStdString();
+    pi.yml.name = dynamic_cast<QLineEdit*>(tc.Properties["NAME"])->text().toStdString();
+    pi.yml.type = dynamic_cast<QLineEdit*>(tc.Properties["TYPE"])->text().toStdString();
+    pi.yml.display_name = dynamic_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->text().toStdString();
+    pi.yml.description = dynamic_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->toPlainText().toStdString();
+    pi.yml.required = dynamic_cast<QCheckBox*>(tc.Properties["REQUIRED"])->isChecked();
+    pi.yml.default_ = dynamic_cast<QLineEdit*>(tc.Properties["DEFAULT"])->text().toStdString();
+    pi.yml.hint = dynamic_cast<QLineEdit*>(tc.Properties["HINT"])->text().toStdString();
 
-    pip.yml.restrictions.min = dynamic_cast<QLineEdit*>(tc.Properties["MIN"])->text().toStdString();
-    pip.yml.restrictions.max = dynamic_cast<QLineEdit*>(tc.Properties["MAX"])->text().toStdString();
-    pip.yml.restrictions.set_.clear();
+    pi.yml.restrictions.min = dynamic_cast<QLineEdit*>(tc.Properties["MIN"])->text().toStdString();
+    pi.yml.restrictions.max = dynamic_cast<QLineEdit*>(tc.Properties["MAX"])->text().toStdString();
+    pi.yml.restrictions.set_.clear();
     QListWidget* listWidgetSet = dynamic_cast<QListWidget*>(tc.Properties["SET"]);
     for (int i = 0; i < listWidgetSet->count(); ++i)
-        pip.yml.restrictions.set_.push_back(listWidgetSet->item(i)->text().toStdString());
+        pi.yml.restrictions.set_.push_back(listWidgetSet->item(i)->text().toStdString());
 
-    pip.yml.restrictions.min_count = dynamic_cast<QLineEdit*>(tc.Properties["MIN_COUNT"])->text().toStdString();
-    pip.yml.restrictions.max_count = dynamic_cast<QLineEdit*>(tc.Properties["MAX_COUNT"])->text().toStdString();
-    pip.yml.restrictions.set_count.clear();
+    pi.yml.restrictions.min_count = dynamic_cast<QLineEdit*>(tc.Properties["MIN_COUNT"])->text().toStdString();
+    pi.yml.restrictions.max_count = dynamic_cast<QLineEdit*>(tc.Properties["MAX_COUNT"])->text().toStdString();
+    pi.yml.restrictions.set_count.clear();
     QListWidget* listWidgetSetCount = dynamic_cast<QListWidget*>(tc.Properties["SET_COUNT"]);
     for (int i = 0; i < listWidgetSetCount->count(); ++i)
-        pip.yml.restrictions.set_count.push_back(listWidgetSetCount->item(i)->text().toStdString());
+        pi.yml.restrictions.set_count.push_back(listWidgetSetCount->item(i)->text().toStdString());
 
-    pip.yml.restrictions.category = dynamic_cast<QLineEdit*>(tc.Properties["CATEGORY"])->text().toStdString();
+    pi.yml.restrictions.category = dynamic_cast<QLineEdit*>(tc.Properties["CATEGORY"])->text().toStdString();
 
-    pip.yml.restrictions.ids.clear();
+    pi.yml.restrictions.ids.clear();
     QListWidget* listWidgetIds = dynamic_cast<QListWidget*>(tc.Properties["IDS"]);
     listWidgetIds->clear();
     for (int i = 0; i < listWidgetIds->count(); ++i)
-        pip.yml.restrictions.ids.push_back(listWidgetIds->item(i)->text().toStdString());
+        pi.yml.restrictions.ids.push_back(listWidgetIds->item(i)->text().toStdString());
 
-    pip.yml.restrictions.max_length = dynamic_cast<QLineEdit*>(tc.Properties["MAX_LENGTH"])->text().toStdString();
+    pi.yml.restrictions.max_length = dynamic_cast<QLineEdit*>(tc.Properties["MAX_LENGTH"])->text().toStdString();
 
-    pi = pip;
+    return true;
+}
+
+bool MainWindow::ReadCurrentMainInfo(QString type, yaml::info_info& mi)
+{
+    TabControls& tc = GetTabControls("Main");
+
+    mi.yml.id = dynamic_cast<QLineEdit*>(tc.Info["ID"])->text().toStdString();
+    mi.yml.display_name = dynamic_cast<QLineEdit*>(tc.Info["DISPLAY_NAME"])->text().toStdString();
+    mi.yml.description = dynamic_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->toPlainText().toStdString();
+    mi.yml.category = dynamic_cast<QLineEdit*>(tc.Info["CATEGORY"])->text().toStdString();
+    mi.yml.pictogram = dynamic_cast<QLineEdit*>(tc.Info["PICTOGRAM"])->text().toStdString();
+    mi.yml.hint = dynamic_cast<QLineEdit*>(tc.Info["HINT"])->text().toStdString();
+    mi.yml.author = dynamic_cast<QLineEdit*>(tc.Info["AUTHOR"])->text().toStdString();
+    mi.yml.wiki = dynamic_cast<QLineEdit*>(tc.Info["WIKI"])->text().toStdString();
+
+    return true;
+}
+
+bool MainWindow::ReadCurrentTypeInfo(QString type, yaml::type_info& ti)
+{
+    TabControls& tc = GetTabControls(type);
+
+    ti.yml.name = dynamic_cast<QLineEdit*>(tc.Info["NAME"])->text().toStdString();
+    ti.yml.type = dynamic_cast<QLineEdit*>(tc.Info["TYPE"])->text().toStdString();
+    ti.yml.description = dynamic_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->toPlainText().toStdString();
+
+    ti.yml.values.clear();
+    QListWidget* listWidgetValues = dynamic_cast<QListWidget*>(tc.Info["VALUES"]);
+    for (int i = 0; i < listWidgetValues->count(); ++i)
+    {
+        QString v = listWidgetValues->item(i)->text();
+        QStringList sl = v.split(" -> ");
+        ti.yml.values[sl[0].toStdString()] = sl[1].toStdString();
+    }
+
+    ti.yml.includes.clear();
+    QListWidget* listWidgetIncludes = dynamic_cast<QListWidget*>(tc.Info["INCLUDES"]);
+    for (int i = 0; i < listWidgetIncludes->count(); ++i)
+        ti.yml.includes.push_back(listWidgetIncludes->item(i)->text().toStdString());
+
+    return true;
+}
+
+bool MainWindow::SaveCurrentParameters(QString type)
+{
+    yaml::parameter_info pi;
+    if (!ReadCurrentParameters(type, pi))
+        return false;
+
+    if (type == "Main")
+    {
+        for (auto& p : fileInfo_.parameters)
+        {
+            if (p.yml.name == pi.yml.name)
+            {
+                p = pi;
+                break;
+            }
+        }
+    }
+    else
+    {
+        for (auto& t : fileInfo_.types)
+        {
+            if (QString(t.yml.name.c_str()) == type)
+            {
+                for (auto& p : t.parameters)
+                {
+                    if (p.yml.name == pi.yml.name)
+                    {
+                        p = pi;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool MainWindow::SaveCurrentInfo(QString type)
+{
+    if (type == "Main")
+    {
+        yaml::info_info mi;
+        if (!ReadCurrentMainInfo(type, mi))
+            return false;
+        fileInfo_.info = mi;
+    }
+    else
+    {
+        for (auto& t : fileInfo_.types)
+        {
+            if (QString(t.yml.name.c_str()) == type)
+            {
+                yaml::type_info ti;
+                if (!ReadCurrentTypeInfo(type, ti))
+                    return false;
+
+                yaml::type_info ti_ = t;
+                t = ti;
+                t.parameters = ti_.parameters; // need optimize !!!
+                break;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool MainWindow::SaveCurrent()
+{
+    for (const auto& t : tabs_)
+    {
+        if (!SaveCurrentInfo(t.Name))
+            return false;
+
+        if (!SaveCurrentParameters(t.Name))
+            return false;
+    }
+
+    return true;
+}
+
+bool MainWindow::Validate()
+{
+    if (fileInfo_.info.yml.id == "")
+    {
+        QMessageBox::critical(this, "Error", "Main ID required");
+        return false;
+    }
+
+    for (const auto& p : fileInfo_.parameters)
+    {
+        if (p.yml.name == "")
+        {
+            QMessageBox::critical(this, "Error", "Main parameter NAME required");
+            return false;
+        }
+
+        if (p.yml.type == "") // add list of values !!!
+        {
+            QMessageBox::critical(this, "Error", "Main parameter TYPE required");
+            return false;
+        }
+    }
+
+    for (const auto& t : fileInfo_.types)
+    {
+        if (t.yml.name == "")
+        {
+            QMessageBox::critical(this, "Error", "Type NAME required");
+            return false;
+        }
+
+        for (const auto& tv : t.parameters)
+        {
+            if (tv.yml.name == "")
+            {
+                QMessageBox::critical(this, "Error", "Main parameter NAME required");
+                return false;
+            }
+
+            if (tv.yml.type == "") // add list of values !!!
+            {
+                QMessageBox::critical(this, "Error", "Main parameter TYPE required");
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+void MainWindow::AddTypes(MainWindow::ll& types, int level)
+{
+    //yaml::yaml_parser yp(false);
+    //for (const auto& sub : types.List)
+    //{
+    //    for (const auto& ti : fileInfo_.types)
+    //    {
+    //        if (QString(ti.yml.name.c_str()) == sub.Name)
+    //        {
+    //            for (const auto& p : ti.parameters)
+    //            {
+    //                QString ts = QString(p.yml.type.c_str());
+    //                if (ts.startsWith("array") && ts.length() > 7)
+    //                    ts = ts.mid(6, ts.length() - 7);
+
+    //                if (!yp.is_inner_type(ts.toStdString()) && !types.List.contains(ll(ts)))
+    //                    types.List.push_back(ll(ts));
+    //            }
+    //        }
+    //    }
+    //}
+
+    yaml::yaml_parser yp(false);
+
+    for (const auto& ti : fileInfo_.types)
+    {
+        if (QString(ti.yml.name.c_str()) == types.Name)
+        {
+            for (const auto& p : ti.parameters)
+            {
+                QString ts = QString(p.yml.type.c_str());
+                if (ts.startsWith("array") && ts.length() > 7)
+                    ts = ts.mid(6, ts.length() - 7);
+
+                ll type(ts);
+                if (!yp.is_inner_type(ts.toStdString()) && !types.List.contains(type))
+                {
+                    if (level < 10)
+                        AddTypes(type, ++level);
+                    types.List.push_back(type);
+                }
+            }
+            break;
+        }
+    }
+}
+
+bool MainWindow::RearrangeTypes()
+{
+    yaml::yaml_parser yp(false);
+    ll types("Main");
+    
+    for (const auto& p : fileInfo_.parameters)
+    {
+        QString ts = QString(p.yml.type.c_str());
+        if (ts.startsWith("array") && ts.length() > 7)
+            ts = ts.mid(6, ts.length() - 7);
+
+        ll type(ts);
+        if (!yp.is_inner_type(ts.toStdString()) && !types.List.contains(type))
+        {
+            AddTypes(type, 0);
+            types.List.push_back(type);
+        }
+    }
+
+    return true;
+    //while (true)
+    //{
+    //    for (const auto& sub : types.List)
+    //    {
+    //        for (const auto& t : fileInfo_.types)
+    //        {
+    //            if (QString(t.yml.name.c_str()) == sub.Name)
+    //            {
+
+    //            }
+    //        }
+    //    }
+    //}
+}
+
+bool MainWindow::WriteCurrent(YAML::Emitter& emitter)
+{
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "INFO";
+    emitter << YAML::Value << YAML::BeginMap;
+
+    emitter << YAML::Key << "ID";
+    emitter << YAML::Value << "aaaaaaaa";
+
+    emitter << YAML::EndMap;
+    //        emitter << YAML::Value << YAML::BeginSeq << "Sasha" << "Malia" << YAML::EndSeq;
+    emitter << YAML::EndMap;
+
     return true;
 }
 

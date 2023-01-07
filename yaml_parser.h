@@ -31,6 +31,7 @@ namespace yaml
 		bool get_xml(std::list<std::string>& xml);
 		bool get_html(std::list<std::string>& html);
 		inline file_info get_file_info() { return file_info_; }
+		bool is_inner_type(std::string name);
 
 	private:
 		template <typename... Args> std::string make_string(Args&&... args);
