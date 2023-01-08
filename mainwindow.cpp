@@ -796,20 +796,20 @@ bool MainWindow::RearrangeTypes()
     w2.List.push_back(&h2);
     h2.List.push_back(&k2);
 
-    //ll k3("k", &m);
-    //ll a3("a", &k3);
-    //ll t3("t", &k3);
-    //ll b3("b", &a3);
-    //ll c3("c", &b3);
-    //ll d3("d", &c3);
-    //ll e3("e", &b3);
-    //m.List.push_back(&k3);
-    //k3.List.push_back(&a3);
-    //k3.List.push_back(&t3);
-    //a3.List.push_back(&b3);
-    //b3.List.push_back(&c3);
-    //b3.List.push_back(&e3);
-    //c3.List.push_back(&d3);
+    ll k3("k", &m);
+    ll a3("a", &k3);
+    ll t3("t", &k3);
+    ll b3("b", &a3);
+    ll c3("c", &b3);
+    ll d3("d", &c3);
+    ll e3("e", &b3);
+    m.List.push_back(&k3);
+    k3.List.push_back(&a3);
+    k3.List.push_back(&t3);
+    a3.List.push_back(&b3);
+    b3.List.push_back(&c3);
+    b3.List.push_back(&e3);
+    c3.List.push_back(&d3);
 
     for (auto mt : m.List)
         FlatList(mt);
@@ -908,62 +908,8 @@ bool MainWindow::RearrangeTypes()
             }
         }
     }
-    
-
-    QMultiMap<QString, int> sortedMap;
-    for (int i = 0; i < m.List.size(); i++)
-        //for (const auto& mt : m.List)
-    {
-        for (const auto& fl : m.List[i]->FlatList)
-            //for (const auto& fl : mt->FlatList)
-        {
-            for (const auto& tn : fl->List)
-            {
-                sortedMap.insert(tn->Name, i);
-            }
-        }
-    }
-
-
-
-    QList<ll*> flatList;
-    while (m.List.size() > 0)
-    {
-        m.List.front()->FlatList;
-
-        flatList.push_back(m.List.front());
-        m.List.pop_front();
-    }
-
-    bool have_intersect = true;
-    while (have_intersect)
-    {
-        for (const auto& mt : m.List)
-        {
-
-        }
-    }
-
-    //QList<yaml::type_info> sorted;
-    //for (const auto& ti : fileInfo_.types)
-    //{
-    //    sorted.insert(0, ti);
-    //}
-
+  
     return true;
-    //while (true)
-    //{
-    //    for (const auto& sub : types.List)
-    //    {
-    //        for (const auto& t : fileInfo_.types)
-    //        {
-    //            if (QString(t.yml.name.c_str()) == sub.Name)
-    //            {
-
-    //            }
-    //        }
-    //    }
-    //}
 }
 
 bool MainWindow::WriteCurrent(YAML::Emitter& emitter)
