@@ -30,12 +30,19 @@ private:
     struct ll
     {
         QString Name;
-        QList<ll> List;
+        QList<ll*> List;
+        QList<ll*> FlatList;
+        ll* Parent;
 
         ll(QString name) :
-            Name(name)
-        {
-        }
+            Name(name),
+            Parent(nullptr)
+        {}
+
+        ll(QString name, ll* parent) :
+            Name(name),
+            Parent(parent)
+        {}
 
         bool operator==(const ll other) const
         {
@@ -98,7 +105,9 @@ private:
     bool SaveCurrent();
     bool Validate();
 
-    void AddTypes(MainWindow::ll& types, int level);
+    bool Contains(QList<ll*>& list, QString value);
+    void FlatList(ll* type);
+    void AddTypes(ll* type, int level);
     bool RearrangeTypes();
 
     bool WriteCurrent(YAML::Emitter& emitter);

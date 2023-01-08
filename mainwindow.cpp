@@ -21,6 +21,8 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
+    RearrangeTypes();
+
     currentFileName_ = "Untitled";
     fileInfo_ = {};
 
@@ -629,46 +631,105 @@ bool MainWindow::Validate()
     return true;
 }
 
-void MainWindow::AddTypes(MainWindow::ll& types, int level)
+bool MainWindow::Contains(QList<ll*>& list, QString value)
 {
-    //yaml::yaml_parser yp(false);
-    //for (const auto& sub : types.List)
-    //{
-    //    for (const auto& ti : fileInfo_.types)
-    //    {
-    //        if (QString(ti.yml.name.c_str()) == sub.Name)
-    //        {
-    //            for (const auto& p : ti.parameters)
-    //            {
-    //                QString ts = QString(p.yml.type.c_str());
-    //                if (ts.startsWith("array") && ts.length() > 7)
-    //                    ts = ts.mid(6, ts.length() - 7);
+    for (const auto v : list)
+    {
+        if (v->Name == value)
+        {
+            return true;
+        }
+    }
+    return false;
+}
 
-    //                if (!yp.is_inner_type(ts.toStdString()) && !types.List.contains(ll(ts)))
-    //                    types.List.push_back(ll(ts));
-    //            }
-    //        }
-    //    }
-    //}
+void MainWindow::FlatList(ll* type)
+{
+    for (auto llt : type->List)
+    {
+        FlatList(llt);
+        for (int i = 0; i < llt->FlatList.size(); i++)
+        {
+            if (type->FlatList.size() <= i)
+            {
+                type->FlatList.push_back(llt->FlatList[i]);
+            }
+            else
+            {
+                //for (int j = 0; j < llt->FlatList[i]->List.size(); j++)
+                //{
+                //    if (!Contains(type->FlatList[i]->List, llt->FlatList[i]->List[j]->Name))
+                //        type->FlatList[i]->List.push_back(llt->FlatList[i]->List[j]);
+                //}
+                for (const auto v : llt->FlatList[i]->List)
+                {
+                    if (!Contains(type->FlatList[i]->List, v->Name))
+                        type->FlatList[i]->List.push_back(v);
+                }
+            }
+        }
+    }
+    type->FlatList.insert(0, new ll(type->Name));
+    type->FlatList[0]->List.push_back(new ll(type->Name));
+}
 
+void MainWindow::AddTypes(ll* type, int level)
+{
     yaml::yaml_parser yp(false);
 
     for (const auto& ti : fileInfo_.types)
     {
-        if (QString(ti.yml.name.c_str()) == types.Name)
+        if (QString(ti.yml.name.c_str()) == type->Name)
         {
-            for (const auto& p : ti.parameters)
+            for (const auto& pi : ti.parameters)
             {
-                QString ts = QString(p.yml.type.c_str());
+                QString ts = QString(pi.yml.type.c_str());
                 if (ts.startsWith("array") && ts.length() > 7)
                     ts = ts.mid(6, ts.length() - 7);
 
-                ll type(ts);
-                if (!yp.is_inner_type(ts.toStdString()) && !types.List.contains(type))
+
+                // Validate, search loops
+                if (ts == type->Name)
+                {
+                    QMessageBox::warning(this, "Warning", "Type loop found");
+                    continue;
+                }
+
+                MainWindow::ll* parent = type->Parent;
+                while (parent != nullptr)
+                {
+                    if (parent->Name == type->Name)
+                    {
+                        QMessageBox::warning(this, "Warning", "Type loop found");
+                        continue;
+                    }
+                    parent = parent->Parent;
+                }
+
+
+                ll* llt = new ll(ts, type);
+                if (!yp.is_inner_type(ts.toStdString()) && !Contains(type->List, ts))
                 {
                     if (level < 10)
-                        AddTypes(type, ++level);
-                    types.List.push_back(type);
+                        AddTypes(llt, ++level);
+                    type->List.push_back(llt);
+
+                    //for (size_t i = 0; i < llt.FlatList.size(); i++)
+                    //{
+                    //    if (type.FlatList.size() <= i)
+                    //    {
+                    //        type.FlatList.push_back(llt.FlatList[i]);
+                    //    }
+                    //    else
+                    //    {
+                    //        for (const auto& v : llt.FlatList[i].List)
+                    //        {
+                    //            if (!type.FlatList[i].List.contains(v))
+                    //                type.FlatList[i].List.push_back(v);
+                    //        }
+                    //    }
+                    //}
+                    //type.FlatList.insert(0, ll(ts));
                 }
             }
             break;
@@ -678,22 +739,216 @@ void MainWindow::AddTypes(MainWindow::ll& types, int level)
 
 bool MainWindow::RearrangeTypes()
 {
-    yaml::yaml_parser yp(false);
-    ll types("Main");
-    
-    for (const auto& p : fileInfo_.parameters)
-    {
-        QString ts = QString(p.yml.type.c_str());
-        if (ts.startsWith("array") && ts.length() > 7)
-            ts = ts.mid(6, ts.length() - 7);
+    //yaml::yaml_parser yp(false);
+    //ll main_types("Main");
+    //
+    //for (const auto& pi : fileInfo_.parameters)
+    //{
+    //    QString ts = QString(pi.yml.type.c_str());
+    //    if (ts.startsWith("array") && ts.length() > 7)
+    //        ts = ts.mid(6, ts.length() - 7);
 
-        ll type(ts);
-        if (!yp.is_inner_type(ts.toStdString()) && !types.List.contains(type))
+    //    ll* llt = new ll(ts);
+    //    if (!yp.is_inner_type(ts.toStdString()) && !main_types.List.contains(llt))
+    //    {
+    //        AddTypes(llt, 0);
+    //        main_types.List.push_back(llt);
+    //    }
+    //}
+
+    ll m("Main");
+
+    ll a("a", &m);
+    ll b("b", &a);
+    ll c("c", &b);
+    ll d("d", &c);
+    ll e("e", &b);
+    m.List.push_back(&a);
+    a.List.push_back(&b);
+    b.List.push_back(&c);
+    b.List.push_back(&e);
+    c.List.push_back(&d);
+
+    ll z("z", &m);
+    ll f("f", &z);
+    ll g("g", &f);
+    ll h("h", &f);
+    ll k("k", &h);
+    m.List.push_back(&z);
+    z.List.push_back(&f);
+    f.List.push_back(&g);
+    f.List.push_back(&h);
+    h.List.push_back(&k);
+
+    ll x1("x", &m);
+    ll c1("c", &x1);
+    ll d1("d", &c1);
+    m.List.push_back(&x1);
+    x1.List.push_back(&c1);
+    c1.List.push_back(&d1);
+
+    ll y2("y", &m);
+    ll w2("w", &y2);
+    ll h2("h", &y2);
+    ll k2("k", &h2);
+    m.List.push_back(&y2);
+    y2.List.push_back(&w2);
+    w2.List.push_back(&h2);
+    h2.List.push_back(&k2);
+
+    //ll k3("k", &m);
+    //ll a3("a", &k3);
+    //ll t3("t", &k3);
+    //ll b3("b", &a3);
+    //ll c3("c", &b3);
+    //ll d3("d", &c3);
+    //ll e3("e", &b3);
+    //m.List.push_back(&k3);
+    //k3.List.push_back(&a3);
+    //k3.List.push_back(&t3);
+    //a3.List.push_back(&b3);
+    //b3.List.push_back(&c3);
+    //b3.List.push_back(&e3);
+    //c3.List.push_back(&d3);
+
+    for (auto mt : m.List)
+        FlatList(mt);
+
+
+
+
+    QMultiMap<QString, int> sortedMap;
+    for (int i = 0; i < m.List.size(); i++)
+    //for (const auto& mt : m.List)
+    {
+        for (const auto& fl : m.List[i]->FlatList)
+        //for (const auto& fl : mt->FlatList)
         {
-            AddTypes(type, 0);
-            types.List.push_back(type);
+            for (const auto& tn : fl->List)
+            {
+                sortedMap.insert(tn->Name, i);
+            }
         }
     }
+
+    QList<QList<int>> y;
+    auto x = sortedMap.keys();
+    auto xx = sortedMap.keys();
+    xx.removeDuplicates();
+    for (const auto& sm : x)
+    {
+        if (x.count(sm) > 1)
+        {
+            auto xxx = sortedMap.values(sm);
+            y.push_back(xxx);
+        }
+    }
+
+
+    QList<QList<int>> sss;
+    QList<QList<int>> zzz;
+    QList<int> ddd;
+    while (y.size() > 0)
+    {
+        if (ddd.size() == 0)
+            ddd = y.front();
+
+        QList<int> ddd_copy = ddd;
+        for (const auto& ly : y)
+        {
+            bool found = false;
+            for (const auto& lly : ly)
+            {
+                for (const auto& vvv : ddd_copy)
+                {
+                    if (lly == vvv)
+                    {
+                        ddd.append(ly);
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found)
+                zzz.push_back(ly);
+        }
+
+        if (ddd_copy.size() == ddd.size())
+        {
+            // no changes
+            sss.push_back(ddd.toSet().toList());
+            ddd.clear();
+        }
+        else
+            ddd = ddd.toSet().toList();
+
+        y.swap(zzz);
+        zzz.clear();
+    }
+
+    if (ddd.size() > 0)
+        sss.push_back(ddd);
+
+
+
+
+    for (const auto& s : sss)
+    {
+        if (s.size() > 1)
+        {
+            auto v1 = m.List[s[0]];
+            for (size_t i = 1; i < s.size(); i++)
+            {
+                auto v2 = m.List[s[i]];
+
+
+
+
+
+            }
+        }
+    }
+    
+
+    QMultiMap<QString, int> sortedMap;
+    for (int i = 0; i < m.List.size(); i++)
+        //for (const auto& mt : m.List)
+    {
+        for (const auto& fl : m.List[i]->FlatList)
+            //for (const auto& fl : mt->FlatList)
+        {
+            for (const auto& tn : fl->List)
+            {
+                sortedMap.insert(tn->Name, i);
+            }
+        }
+    }
+
+
+
+    QList<ll*> flatList;
+    while (m.List.size() > 0)
+    {
+        m.List.front()->FlatList;
+
+        flatList.push_back(m.List.front());
+        m.List.pop_front();
+    }
+
+    bool have_intersect = true;
+    while (have_intersect)
+    {
+        for (const auto& mt : m.List)
+        {
+
+        }
+    }
+
+    //QList<yaml::type_info> sorted;
+    //for (const auto& ti : fileInfo_.types)
+    //{
+    //    sorted.insert(0, ti);
+    //}
 
     return true;
     //while (true)
