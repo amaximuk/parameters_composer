@@ -1103,6 +1103,7 @@ bool yaml_parser::get_info_info(const YAML::Node& node, info_info& ui)
 		ui.yml.display_name = ui.yml.id;
 	if (!try_get_yaml_value<std::string>(node, "DESCRIPTION", ui.yml.description))
 		ui.yml.description = ui.yml.display_name;
+	ui.yml.description = std::regex_replace(ui.yml.description, std::regex("\r\n$|\n$"), "");
 	if (!try_get_yaml_value<std::string>(node, "CATEGORY", ui.yml.category))
 		ui.yml.category = "No category";
 	if (!try_get_yaml_value<std::string>(node, "HINT", ui.yml.hint))
@@ -1128,6 +1129,7 @@ bool yaml_parser::get_type_info(const YAML::Node& node, const std::vector<type_i
 		ti.yml.type = "yml";
 	if (!try_get_yaml_value<std::string>(node, "DESCRIPTION", ti.yml.description))
 		ti.yml.description = ti.yml.name;
+	ti.yml.description = std::regex_replace(ti.yml.description, std::regex("\r\n$|\n$"), "");
 
 	// Evaluated members
 	ti.category = ti.yml.type == "yml" ? type_category::user_yml : type_category::user_cpp;
@@ -1147,7 +1149,7 @@ bool yaml_parser::get_type_info(const YAML::Node& node, const std::vector<type_i
 	{
 		YAML::Node values = node["VALUES"];
 		for (const auto& value : values)
-			ti.yml.values[value.first.as<std::string>()] = value.second.as<std::string>();
+			ti.yml.values.push_back({ value.first.as<std::string>(), value.second.as<std::string>() });
 
 		YAML::Node includes = node["INCLUDES"];
 		for (const auto& include : includes)
@@ -1186,6 +1188,7 @@ bool yaml_parser::get_parameter_info(const YAML::Node& node, const std::vector<t
 		pi.yml.display_name = pi.yml.name;
 	if (!try_get_yaml_value<std::string>(node, "DESCRIPTION", pi.yml.description))
 		pi.yml.description = pi.yml.display_name;
+	pi.yml.description = std::regex_replace(pi.yml.description, std::regex("\r\n$|\n$"), "");
 	if (!try_get_yaml_value<std::string>(node, "HINT", pi.yml.hint))
 		pi.yml.hint = "";
 	if (!try_get_yaml_value<bool>(node, "REQUIRED", pi.yml.required))

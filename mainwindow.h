@@ -60,6 +60,9 @@ public:
     ~MainWindow();
 
 private:
+    void closeEvent(QCloseEvent* event) override;
+
+private:
     TabControls& GetTabControls(QString type);
     bool IsTabControlsExists(QString type);
     QMap<QString, QObject*>& GetControls(QString type, ControlsGroup group);
@@ -111,6 +114,9 @@ private:
     bool RearrangeTypes();
 
     bool WriteCurrent(YAML::Emitter& emitter);
+    bool WriteInfo(YAML::Emitter& emitter, yaml::info_info ii);
+    bool WriteType(YAML::Emitter& emitter, yaml::type_info ti);
+    bool WriteParameter(YAML::Emitter& emitter, yaml::parameter_info pi);
 
 private slots:
     void on_toolButton_clicked();

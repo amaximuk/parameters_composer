@@ -244,7 +244,7 @@ namespace yaml
 			// Optional members from yml
 			std::string type;
 			std::string description;
-			std::map<std::string, std::string> values;
+			std::vector<std::pair<std::string, std::string>> values;
 			std::vector<std::string> includes;
 		} yml;
 

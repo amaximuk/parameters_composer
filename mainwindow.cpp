@@ -14,6 +14,7 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <QFileDialog>
+#include <QCloseEvent>
 
 #include "yaml_parser.h"
 #include "mainwindow.h"
@@ -21,8 +22,6 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    RearrangeTypes();
-
     currentFileName_ = "Untitled";
     fileInfo_ = {};
 
@@ -34,6 +33,16 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+}
+
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+        "Are you sure want to exit?", QMessageBox::No | QMessageBox::Yes);
+    if (resBtn == QMessageBox::Yes)
+        event->accept();
+    else
+        event->ignore();
 }
 
 MainWindow::TabControls& MainWindow::GetTabControls(QString type)
@@ -87,30 +96,14 @@ QMap<QString, QObject*>& MainWindow::GetControls(QString type, MainWindow::Contr
 
 void MainWindow::on_NewFile_action()
 {
-    QMessageBox::StandardButton reply;
-    reply = QMessageBox::question(this, "Test", "Quit?",
-        QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
-        qDebug() << "Yes was clicked";
-        QApplication::quit();
-    }
-    else {
-        qDebug() << "Yes was *not* clicked";
-    }
 }
 
 void MainWindow::on_Quit_action()
 {
-    QMessageBox::StandardButton reply;
-    reply = QMessageBox::question(this, "Test", "Quit?",
-        QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
-        qDebug() << "Yes was clicked";
+    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+        "Are you sure want to exit?", QMessageBox::No | QMessageBox::Yes);
+    if (resBtn == QMessageBox::Yes)
         QApplication::quit();
-    }
-    else {
-        qDebug() << "Yes was *not* clicked";
-    }
 }
 
 void MainWindow::on_OpenFile_action()
@@ -136,14 +129,15 @@ void MainWindow::on_OpenFile_action()
             {
                 TabControls& tc = tabs_[0];
 
-                dynamic_cast<QLineEdit*>(tc.Info["ID"])->setText(QString(fileInfo_.info.yml.id.c_str()));
-                dynamic_cast<QLineEdit*>(tc.Info["DISPLAY_NAME"])->setText(QString(fileInfo_.info.yml.display_name.c_str()));
-                dynamic_cast<QLineEdit*>(tc.Info["CATEGORY"])->setText(QString(fileInfo_.info.yml.category.c_str()));
-                dynamic_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString(fileInfo_.info.yml.description.c_str()));
-                dynamic_cast<QLineEdit*>(tc.Info["PICTOGRAM"])->setText(QString(fileInfo_.info.yml.pictogram.c_str()));
-                dynamic_cast<QLineEdit*>(tc.Info["HINT"])->setText(QString(fileInfo_.info.yml.hint.c_str()));
-                dynamic_cast<QLineEdit*>(tc.Info["AUTHOR"])->setText(QString(fileInfo_.info.yml.author.c_str()));
-                dynamic_cast<QLineEdit*>(tc.Info["WIKI"])->setText(QString(fileInfo_.info.yml.wiki.c_str()));
+                qobject_cast<QLineEdit*>(tc.Info["ID"])->setText(QString::fromStdString(fileInfo_.info.yml.id));
+                qobject_cast<QLineEdit*>(tc.Info["DISPLAY_NAME"])->setText(QString::fromStdString(fileInfo_.info.yml.display_name));
+                qobject_cast<QLineEdit*>(tc.Info["CATEGORY"])->setText(QString::fromStdString(fileInfo_.info.yml.category));
+                qobject_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString::fromStdString(fileInfo_.info.yml.description));
+                qobject_cast<QLineEdit*>(tc.Info["PICTOGRAM"])->setText(QString::fromStdString(fileInfo_.info.yml.pictogram));
+                qobject_cast<QLineEdit*>(tc.Info["HINT"])->setText(QString::fromStdString(fileInfo_.info.yml.hint));
+                qobject_cast<QLineEdit*>(tc.Info["AUTHOR"])->setText(QString::fromStdString(fileInfo_.info.yml.author));
+                qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setText(QString::fromStdString(fileInfo_.info.yml.wiki));
+                qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setCursorPosition(0);
 
                 QListWidget* listWidget = dynamic_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
                 listWidget->clear();
@@ -224,10 +218,12 @@ void MainWindow::on_SaveAsFile_action()
             return;
 
         QFile file(fileNames[0]);
-        if (file.open(QIODevice::ReadWrite))
+        if (file.open(QIODevice::WriteOnly))
         {
-            QTextStream stream(&file);
-            stream << emitter.c_str();
+            file.write(emitter.c_str());
+            //QTextStream stream(&file);
+            //std::string s(emitter.c_str());
+            //stream << QString::fromUtf8(s.c_str());
         }
     }
 }
@@ -312,7 +308,8 @@ QWidget* MainWindow::CreateMainTabInfoWidget()
 
     int index = 0;
     AddPropertySubheader(gridLayoutInfo, "INFO", "font-weight: bold; font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutInfo, "ID", index++, tc.Info);
+    AddLineEditRequiredProperty(gridLayoutInfo, "ID", index++, "Main", MainWindow::ControlsGroup::Info);
+    //AddLineEditProperty(gridLayoutInfo, "ID", index++, tc.Info);
     AddLineEditProperty(gridLayoutInfo, "DISPLAY_NAME", index++, tc.Info);
     AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++, tc.Info);
     AddLineEditProperty(gridLayoutInfo, "CATEGORY", index++, tc.Info);
@@ -387,6 +384,8 @@ void MainWindow::AddPropertySubheader(QGridLayout* gridLayout, QString text, QSt
     gridLayout->addWidget(label, index, 0, 1, 2, Qt::AlignCenter);
 }
 
+//QComboBox
+
 void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int index, QString tabId, QString listControlId, QMap<QString, QObject*>& mapControls, QString type)
 {
     QWidget* widgetPropertiesRestrictionsSetButtons = CreateListControlWidget(24, tabId, listControlId, type);
@@ -406,7 +405,11 @@ void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int inde
 
 void MainWindow::AddLineEditRequiredProperty(QGridLayout* gridLayout, QString name, int index, QString type, MainWindow::ControlsGroup group)
 {
-    gridLayout->addWidget(new QLabel(name), index, 0);
+    QLabel* label = new QLabel;
+    label->setStyleSheet("font-weight: bold");
+    label->setText(name);
+
+    gridLayout->addWidget(label, index, 0);
     QLineEdit* lineEdit = new QLineEdit;
     lineEdit->setProperty("name", name);
     lineEdit->setProperty("group", static_cast<int>(group));
@@ -448,7 +451,6 @@ bool MainWindow::ReadCurrentParameters(QString type, yaml::parameter_info& pi)
 
     pi.yml.restrictions.ids.clear();
     QListWidget* listWidgetIds = dynamic_cast<QListWidget*>(tc.Properties["IDS"]);
-    listWidgetIds->clear();
     for (int i = 0; i < listWidgetIds->count(); ++i)
         pi.yml.restrictions.ids.push_back(listWidgetIds->item(i)->text().toStdString());
 
@@ -487,7 +489,7 @@ bool MainWindow::ReadCurrentTypeInfo(QString type, yaml::type_info& ti)
     {
         QString v = listWidgetValues->item(i)->text();
         QStringList sl = v.split(" -> ");
-        ti.yml.values[sl[0].toStdString()] = sl[1].toStdString();
+        ti.yml.values.push_back({ sl[0].toStdString(), sl[1].toStdString() });
     }
 
     ti.yml.includes.clear();
@@ -739,190 +741,275 @@ void MainWindow::AddTypes(ll* type, int level)
 
 bool MainWindow::RearrangeTypes()
 {
-    //yaml::yaml_parser yp(false);
-    //ll main_types("Main");
-    //
-    //for (const auto& pi : fileInfo_.parameters)
-    //{
-    //    QString ts = QString(pi.yml.type.c_str());
-    //    if (ts.startsWith("array") && ts.length() > 7)
-    //        ts = ts.mid(6, ts.length() - 7);
-
-    //    ll* llt = new ll(ts);
-    //    if (!yp.is_inner_type(ts.toStdString()) && !main_types.List.contains(llt))
-    //    {
-    //        AddTypes(llt, 0);
-    //        main_types.List.push_back(llt);
-    //    }
-    //}
-
-    ll m("Main");
-
-    ll a("a", &m);
-    ll b("b", &a);
-    ll c("c", &b);
-    ll d("d", &c);
-    ll e("e", &b);
-    m.List.push_back(&a);
-    a.List.push_back(&b);
-    b.List.push_back(&c);
-    b.List.push_back(&e);
-    c.List.push_back(&d);
-
-    ll z("z", &m);
-    ll f("f", &z);
-    ll g("g", &f);
-    ll h("h", &f);
-    ll k("k", &h);
-    m.List.push_back(&z);
-    z.List.push_back(&f);
-    f.List.push_back(&g);
-    f.List.push_back(&h);
-    h.List.push_back(&k);
-
-    ll x1("x", &m);
-    ll c1("c", &x1);
-    ll d1("d", &c1);
-    m.List.push_back(&x1);
-    x1.List.push_back(&c1);
-    c1.List.push_back(&d1);
-
-    ll y2("y", &m);
-    ll w2("w", &y2);
-    ll h2("h", &y2);
-    ll k2("k", &h2);
-    m.List.push_back(&y2);
-    y2.List.push_back(&w2);
-    w2.List.push_back(&h2);
-    h2.List.push_back(&k2);
-
-    ll k3("k", &m);
-    ll a3("a", &k3);
-    ll t3("t", &k3);
-    ll b3("b", &a3);
-    ll c3("c", &b3);
-    ll d3("d", &c3);
-    ll e3("e", &b3);
-    m.List.push_back(&k3);
-    k3.List.push_back(&a3);
-    k3.List.push_back(&t3);
-    a3.List.push_back(&b3);
-    b3.List.push_back(&c3);
-    b3.List.push_back(&e3);
-    c3.List.push_back(&d3);
-
-    for (auto mt : m.List)
-        FlatList(mt);
-
-
-
-
-    QMultiMap<QString, int> sortedMap;
-    for (int i = 0; i < m.List.size(); i++)
-    //for (const auto& mt : m.List)
+    yaml::yaml_parser yp(false);
+    QList<QString> sorted_names;
+    bool found_new = true;
+    while (found_new)
     {
-        for (const auto& fl : m.List[i]->FlatList)
-        //for (const auto& fl : mt->FlatList)
+        found_new = false;
+        for (const auto& ti : fileInfo_.types)
         {
-            for (const auto& tn : fl->List)
+            QString tn = QString(ti.yml.name.c_str());
+            if (sorted_names.contains(tn))
+                continue;
+
+            bool have_unresolved = false;
+            for (const auto& pi : ti.parameters)
             {
-                sortedMap.insert(tn->Name, i);
-            }
-        }
-    }
+                QString ts = QString(pi.yml.type.c_str());
+                if (ts.startsWith("array") && ts.length() > 7)
+                    ts = ts.mid(6, ts.length() - 7);
 
-    QList<QList<int>> y;
-    auto x = sortedMap.keys();
-    auto xx = sortedMap.keys();
-    xx.removeDuplicates();
-    for (const auto& sm : x)
-    {
-        if (x.count(sm) > 1)
-        {
-            auto xxx = sortedMap.values(sm);
-            y.push_back(xxx);
-        }
-    }
-
-
-    QList<QList<int>> sss;
-    QList<QList<int>> zzz;
-    QList<int> ddd;
-    while (y.size() > 0)
-    {
-        if (ddd.size() == 0)
-            ddd = y.front();
-
-        QList<int> ddd_copy = ddd;
-        for (const auto& ly : y)
-        {
-            bool found = false;
-            for (const auto& lly : ly)
-            {
-                for (const auto& vvv : ddd_copy)
+                if (!yp.is_inner_type(ts.toStdString()) && !sorted_names.contains(ts))
                 {
-                    if (lly == vvv)
-                    {
-                        ddd.append(ly);
-                        found = true;
-                        break;
-                    }
+                    have_unresolved = true;
+                    break;
                 }
             }
-            if (!found)
-                zzz.push_back(ly);
-        }
 
-        if (ddd_copy.size() == ddd.size())
-        {
-            // no changes
-            sss.push_back(ddd.toSet().toList());
-            ddd.clear();
+            if (!have_unresolved)
+            {
+                sorted_names.push_back(tn);
+                found_new = true;
+            }
         }
-        else
-            ddd = ddd.toSet().toList();
-
-        y.swap(zzz);
-        zzz.clear();
     }
 
-    if (ddd.size() > 0)
-        sss.push_back(ddd);
-
-
-
-
-    for (const auto& s : sss)
+    if (fileInfo_.types.size() > sorted_names.size())
     {
-        if (s.size() > 1)
+        QMessageBox::warning(this, "Warning", "Type loop found");
+        for (const auto& ti : fileInfo_.types)
         {
-            auto v1 = m.List[s[0]];
-            for (size_t i = 1; i < s.size(); i++)
-            {
-                auto v2 = m.List[s[i]];
-
-
-
-
-
-            }
+            QString tn = QString(ti.yml.name.c_str());
+            if (!sorted_names.contains(tn))
+                sorted_names.push_back(tn);
         }
     }
   
+    std::vector<yaml::type_info> sorted_types;
+    for (const auto& sn : sorted_names)
+    {
+        for (const auto& ti : fileInfo_.types)
+        {
+            if (sn == QString(ti.yml.name.c_str()))
+            {
+                sorted_types.push_back(ti);
+            }
+        }
+    }
+
+    fileInfo_.types = std::move(sorted_types);
+
     return true;
 }
 
 bool MainWindow::WriteCurrent(YAML::Emitter& emitter)
 {
     emitter << YAML::BeginMap;
+    WriteInfo(emitter, fileInfo_.info);
+
+    if (fileInfo_.types.size() > 0)
+    {
+        emitter << YAML::Key << "TYPES";
+        emitter << YAML::Value << YAML::BeginSeq;
+        for (const auto& ti : fileInfo_.types)
+            WriteType(emitter, ti);
+        emitter << YAML::EndSeq;
+    }
+
+    if (fileInfo_.parameters.size() > 0)
+    {
+        emitter << YAML::Key << "PARAMETERS";
+        emitter << YAML::Value << YAML::BeginSeq;
+        for (const auto& pi : fileInfo_.parameters)
+            WriteParameter(emitter, pi);
+        emitter << YAML::EndSeq;
+    }
+
+    emitter << YAML::EndMap;
+
+    return true;
+}
+
+bool MainWindow::WriteInfo(YAML::Emitter& emitter, yaml::info_info ii)
+{
     emitter << YAML::Key << "INFO";
     emitter << YAML::Value << YAML::BeginMap;
 
     emitter << YAML::Key << "ID";
-    emitter << YAML::Value << "aaaaaaaa";
+    emitter << YAML::Value << ii.yml.id;
+    if (ii.yml.display_name != "")
+    {
+        emitter << YAML::Key << "DISPLAY_NAME";
+        emitter << YAML::Value << ii.yml.display_name;
+    }
+    if (ii.yml.category != "")
+    {
+        emitter << YAML::Key << "CATEGORY";
+        emitter << YAML::Value << ii.yml.category;
+    }
+    if (ii.yml.description != "")
+    {
+        emitter << YAML::Key << "DESCRIPTION";
+        emitter << YAML::Value << YAML::Literal << ii.yml.description;
+    }
+    if (ii.yml.pictogram != "")
+    {
+        emitter << YAML::Key << "PICTOGRAM";
+        emitter << YAML::Value << ii.yml.pictogram;
+    }
+    if (ii.yml.hint != "")
+    {
+        emitter << YAML::Key << "HINT";
+        emitter << YAML::Value << ii.yml.hint;
+    }
+    if (ii.yml.author != "")
+    {
+        emitter << YAML::Key << "AUTHOR";
+        emitter << YAML::Value << ii.yml.author;
+    }
+    if (ii.yml.wiki != "")
+    {
+        emitter << YAML::Key << "WIKI";
+        emitter << YAML::Value << ii.yml.wiki;
+    }
 
     emitter << YAML::EndMap;
-    //        emitter << YAML::Value << YAML::BeginSeq << "Sasha" << "Malia" << YAML::EndSeq;
+
+    return true;
+}
+
+bool MainWindow::WriteType(YAML::Emitter& emitter, yaml::type_info ti)
+{
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "NAME";
+    emitter << YAML::Value << ti.yml.name;
+    if (ti.yml.type != "" && ti.yml.type != "yml")
+    {
+        emitter << YAML::Key << "TYPE";
+        emitter << YAML::Value << ti.yml.type;
+    }
+    if (fileInfo_.info.yml.description != "")
+    {
+        emitter << YAML::Key << "DESCRIPTION";
+        emitter << YAML::Value << YAML::Literal << ti.yml.description;
+    }
+    if (ti.yml.values.size() > 0)
+    {
+        emitter << YAML::Key << "VALUES";
+        emitter << YAML::Value << YAML::BeginMap;
+        for (const auto& v : ti.yml.values)
+        {
+            emitter << YAML::Key << v.first;
+            emitter << YAML::Value << v.second;
+        }
+        emitter << YAML::EndMap;
+    }
+    if (ti.yml.includes.size() > 0)
+    {
+        emitter << YAML::Key << "INCLUDES";
+        emitter << YAML::Value << ti.yml.includes;
+    }
+    if (ti.parameters.size() > 0)
+    {
+        emitter << YAML::Key << "PARAMETERS";
+        emitter << YAML::Value << YAML::BeginSeq;
+        for (const auto& pi : ti.parameters)
+            WriteParameter(emitter, pi);
+        emitter << YAML::EndSeq;
+    }
+    emitter << YAML::EndMap;
+
+    return true;
+}
+
+bool MainWindow::WriteParameter(YAML::Emitter& emitter, yaml::parameter_info pi)
+{
+    emitter << YAML::BeginMap;
+    emitter << YAML::Key << "NAME";
+    emitter << YAML::Value << pi.yml.name;
+    emitter << YAML::Key << "TYPE";
+    emitter << YAML::Value << pi.yml.type;
+    if (pi.yml.display_name != "")
+    {
+        emitter << YAML::Key << "DISPLAY_NAME";
+        emitter << YAML::Value << pi.yml.display_name;
+    }
+    if (pi.yml.description != "")
+    {
+        emitter << YAML::Key << "DESCRIPTION";
+        emitter << YAML::Value << YAML::Literal << pi.yml.description;
+    }
+    if (pi.yml.required != true)
+    {
+        emitter << YAML::Key << "REQUIRED";
+        emitter << YAML::Value << YAML::TrueFalseBool << pi.yml.required;
+    }
+    if (pi.yml.default_ != "")
+    {
+        emitter << YAML::Key << "DEFAULT";
+        emitter << YAML::Value << pi.yml.default_;
+    }
+    if (pi.yml.hint != "")
+    {
+        emitter << YAML::Key << "HINT";
+        emitter << YAML::Value << pi.yml.hint;
+    }
+
+    if (pi.yml.restrictions.min != "" || pi.yml.restrictions.max != "" || pi.yml.restrictions.set_.size() > 0 ||
+        pi.yml.restrictions.min_count != "" || pi.yml.restrictions.max_count != "" || pi.yml.restrictions.set_count.size() > 0 ||
+        pi.yml.restrictions.category != "" || pi.yml.restrictions.ids.size() > 0 || pi.yml.restrictions.max_length != "")
+    {
+        emitter << YAML::Key << "RESTRICTIONS";
+        emitter << YAML::Value << YAML::BeginMap;
+        if (pi.yml.restrictions.min != "")
+        {
+            emitter << YAML::Key << "MIN";
+            emitter << YAML::Value << pi.yml.restrictions.min;
+        }
+        if (pi.yml.restrictions.max != "")
+        {
+            emitter << YAML::Key << "MAX";
+            emitter << YAML::Value << pi.yml.restrictions.max;
+        }
+        if (pi.yml.restrictions.set_.size() > 0)
+        {
+            emitter << YAML::Key << "SET";
+            emitter << YAML::Value << YAML::Flow << pi.yml.restrictions.set_;
+        }
+        if (pi.yml.restrictions.min_count != "")
+        {
+            emitter << YAML::Key << "MIN_COUNT";
+            emitter << YAML::Value << pi.yml.restrictions.min_count;
+        }
+        if (pi.yml.restrictions.max_count != "")
+        {
+            emitter << YAML::Key << "MAX_COUNT";
+            emitter << YAML::Value << pi.yml.restrictions.max_count;
+        }
+        if (pi.yml.restrictions.set_count.size() > 0)
+        {
+            emitter << YAML::Key << "SET_COUNT";
+            emitter << YAML::Value << YAML::Flow << pi.yml.restrictions.set_count;
+        }
+        if (pi.yml.restrictions.category != "")
+        {
+            emitter << YAML::Key << "CATEGORY";
+            emitter << YAML::Value << pi.yml.restrictions.category;
+        }
+        if (pi.yml.restrictions.ids.size() > 0)
+        {
+            emitter << YAML::Key << "IDS";
+            emitter << YAML::Value << YAML::Flow << pi.yml.restrictions.ids;
+        }
+        if (pi.yml.restrictions.max_length != "")
+        {
+            emitter << YAML::Key << "MAX_LENGTH";
+            emitter << YAML::Value << pi.yml.restrictions.max_length;
+        }
+        emitter << YAML::EndMap;
+    }
+
     emitter << YAML::EndMap;
 
     return true;
@@ -1194,8 +1281,6 @@ void MainWindow::on_editingFinished()
         return;
 
     TabControls& tc = GetTabControls(type);
-    QListWidget* listWidget = dynamic_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
-    if (listWidget->selectedItems().size() == 0) return; // !!!
 
     if (group == MainWindow::ControlsGroup::Info && name == "ID")
     {
@@ -1204,17 +1289,34 @@ void MainWindow::on_editingFinished()
     else if (group == MainWindow::ControlsGroup::Info && name == "NAME")
     {
         // Type NAME
+        QTabWidget* tabWidget = dynamic_cast<QTabWidget*>(centralWidget());
+
+        int index = tabWidget->currentIndex();
+        QString oldName = tabWidget->tabText(index);
+
+        for (const auto& ti : fileInfo_.types)
+        {
+            if (QString::fromStdString(ti.yml.name) == lineEdit->text())
+            {
+                QMessageBox::critical(this, "Error", "Type with this NAME already exists: " + lineEdit->text());
+                lineEdit->setText(oldName);
+                return;
+            }
+        }
     }
     else if (group == MainWindow::ControlsGroup::Properties && name == "NAME")
     {
         // Property NAME
+        QListWidget* listWidget = dynamic_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+        if (listWidget->selectedItems().size() == 0) return; // !!!
+
         QString oldName = listWidget->selectedItems()[0]->text();
 
         for (int i = 0; i < listWidget->count(); ++i)
         {
             if (listWidget->item(i)->text() == lineEdit->text() && listWidget->selectedItems()[0] != listWidget->item(i))
             {
-                QMessageBox::critical(this, "Error", "Property name already exists: " + lineEdit->text());
+                QMessageBox::critical(this, "Error", "Property with this NAME already exists: " + lineEdit->text());
                 if (listWidget->selectedItems().size() > 0)
                     lineEdit->setText(oldName);
                 return;
