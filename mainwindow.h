@@ -66,6 +66,7 @@ private:
     TabControls& GetTabControls(QString type);
     bool IsTabControlsExists(QString type);
     QMap<QString, QObject*>& GetControls(QString type, ControlsGroup group);
+    bool RenameTabControls(QString oldType, QString newType);
 
 private slots:
     void on_NewFile_action();
@@ -73,6 +74,8 @@ private slots:
     void on_SaveFile_action();
     void on_SaveAsFile_action();
     void on_Quit_action();
+    void on_AddType_action();
+    void on_RemoveType_action();
 
 private:
     void CreateMenu();

@@ -22,13 +22,13 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    currentFileName_ = "Untitled";
+    currentFileName_ = "";
     fileInfo_ = {};
 
     CreateUi();
 
     setWindowIcon(QIcon(":/images/parameters.png"));
-    setWindowTitle("parameters_composer - " + currentFileName_);
+    setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
 }
 
 MainWindow::~MainWindow()
@@ -38,7 +38,7 @@ MainWindow::~MainWindow()
 void MainWindow::closeEvent(QCloseEvent* event)
 {
     QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-        "Are you sure want to exit?", QMessageBox::No | QMessageBox::Yes);
+        "Are you sure want to exit?\nAll unsaved work will be lost!", QMessageBox::No | QMessageBox::Yes);
     if (resBtn == QMessageBox::Yes)
         event->accept();
     else
@@ -94,20 +94,60 @@ QMap<QString, QObject*>& MainWindow::GetControls(QString type, MainWindow::Contr
     }
 }
 
+bool MainWindow::RenameTabControls(QString oldType, QString newType)
+{
+    TabControls& tc = GetTabControls(oldType);
+    
+    tc.Name = newType;
+
+    for (auto& x : tc.Info)
+        x->setProperty("type", newType);
+    for (auto& x : tc.PropertyList)
+        x->setProperty("type", newType);
+    for (auto& x : tc.Properties)
+        x->setProperty("type", newType);
+ 
+
+    return true;
+}
+
 void MainWindow::on_NewFile_action()
 {
+    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+        "Are you sure want to create new file?\nAll unsaved work will be lost!", QMessageBox::No | QMessageBox::Yes);
+    if (resBtn != QMessageBox::Yes)
+        return;
+
+    while (dynamic_cast<QTabWidget*>(centralWidget())->count() > 0)
+        dynamic_cast<QTabWidget*>(centralWidget())->removeTab(0);
+
+    QWidget* widgetTabProperties = CreateMainTabWidget();
+    dynamic_cast<QTabWidget*>(centralWidget())->addTab(widgetTabProperties, "Main");
+
+    fileInfo_ = {};
+
+    currentFileName_ = "";
+    setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
 }
 
 void MainWindow::on_Quit_action()
 {
     QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-        "Are you sure want to exit?", QMessageBox::No | QMessageBox::Yes);
+        "Are you sure want to exit?\nAll unsaved work will be lost!", QMessageBox::No | QMessageBox::Yes);
     if (resBtn == QMessageBox::Yes)
         QApplication::quit();
 }
 
 void MainWindow::on_OpenFile_action()
 {
+    if (currentFileName_ != "")
+    {
+        QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+            "Are you sure want to open file?\nAll unsaved work will be lost!", QMessageBox::No | QMessageBox::Yes);
+        if (resBtn != QMessageBox::Yes)
+            return;
+    }
+
     QFileDialog dialog(this);
     dialog.setNameFilter("Parameters Compiler Files (*.yml *.yaml *.json)");
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
@@ -123,7 +163,7 @@ void MainWindow::on_OpenFile_action()
         if (parser.parse(fileNames[0].toStdString()))
         {
             currentFileName_ = fileNames[0];
-            setWindowTitle("parameters_composer - " + currentFileName_);
+            setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
             fileInfo_ = parser.get_file_info();
 
             {
@@ -142,38 +182,41 @@ void MainWindow::on_OpenFile_action()
                 QListWidget* listWidget = dynamic_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
                 listWidget->clear();
                 for (const auto& pi : fileInfo_.parameters)
-                    listWidget->addItem(QString(pi.yml.name.c_str()));
+                    listWidget->addItem(QString::fromStdString(pi.yml.name));
                 if (listWidget->count() > 0)
                     listWidget->setCurrentRow(0);
             }
 
+            while (dynamic_cast<QTabWidget*>(centralWidget())->count() > 1)
+                dynamic_cast<QTabWidget*>(centralWidget())->removeTab(1);
+
             for (const auto& ti : fileInfo_.types)
             {
-                QString type(ti.yml.name.c_str());
+                QString type = QString::fromStdString(ti.yml.name);
 
                 QWidget* widgetTabType = CreateTypeTabWidget(type);
                 dynamic_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, type);
                 
                 TabControls& tc = GetTabControls(type);
 
-                dynamic_cast<QLineEdit*>(tc.Info["NAME"])->setText(QString(ti.yml.name.c_str()));
-                dynamic_cast<QLineEdit*>(tc.Info["TYPE"])->setText(QString(ti.yml.type.c_str()));
-                dynamic_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString(ti.yml.description.c_str()));
+                dynamic_cast<QLineEdit*>(tc.Info["NAME"])->setText(QString::fromStdString(ti.yml.name));
+                dynamic_cast<QLineEdit*>(tc.Info["TYPE"])->setText(QString::fromStdString(ti.yml.type));
+                dynamic_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString::fromStdString(ti.yml.description));
 
                 QListWidget* listWidgetValues = dynamic_cast<QListWidget*>(tc.Info["VALUES"]);
                 listWidgetValues->clear();
                 for (const auto& v : ti.yml.values)
-                    listWidgetValues->addItem(QString(v.first.c_str()) + " -> " + QString(v.second.c_str()));
+                    listWidgetValues->addItem(QString::fromStdString(v.first) + " -> " + QString::fromStdString(v.second));
 
                 QListWidget* listWidgetIncludes = dynamic_cast<QListWidget*>(tc.Info["INCLUDES"]);
                 listWidgetIncludes->clear();
                 for (const auto& v : ti.yml.includes)
-                    listWidgetIncludes->addItem(QString(v.c_str()));
+                    listWidgetIncludes->addItem(QString::fromStdString(v));
 
                 QListWidget* listWidget = dynamic_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
                 listWidget->clear();
                 for (const auto& pi : ti.parameters)
-                    listWidget->addItem(QString(pi.yml.name.c_str()));
+                    listWidget->addItem(QString::fromStdString(pi.yml.name));
                 if (listWidget->count() > 0)
                     listWidget->setCurrentRow(0);
             }
@@ -186,7 +229,49 @@ void MainWindow::on_OpenFile_action()
 }
 void MainWindow::on_SaveFile_action()
 {
+    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+        "Are you sure want to save file?\nFile will be overwriten!", QMessageBox::No | QMessageBox::Yes);
+    if (resBtn != QMessageBox::Yes)
+        return;
 
+    QStringList fileNames;
+    if (currentFileName_ == "")
+    {
+        QFileDialog dialog(this);
+        dialog.setNameFilter("Parameters Compiler Files (*.yml)");
+        dialog.setAcceptMode(QFileDialog::AcceptSave);
+        dialog.setDefaultSuffix("yml");
+
+        if (dialog.exec())
+            fileNames = dialog.selectedFiles();
+    }
+    else
+        fileNames.push_back(currentFileName_);
+
+    if (fileNames.size() > 0)
+    {
+        qDebug() << fileNames[0];
+
+        if (!SaveCurrent())
+            return;
+
+        if (!Validate())
+            return;
+
+        if (!RearrangeTypes())
+            return;
+
+        YAML::Emitter emitter;
+        if (!WriteCurrent(emitter))
+            return;
+
+        QFile file(fileNames[0]);
+        if (file.open(QIODevice::WriteOnly))
+            file.write(emitter.c_str());
+
+        currentFileName_ = fileNames[0];
+        setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
+    }
 }
 
 void MainWindow::on_SaveAsFile_action()
@@ -219,13 +304,93 @@ void MainWindow::on_SaveAsFile_action()
 
         QFile file(fileNames[0]);
         if (file.open(QIODevice::WriteOnly))
-        {
             file.write(emitter.c_str());
-            //QTextStream stream(&file);
-            //std::string s(emitter.c_str());
-            //stream << QString::fromUtf8(s.c_str());
+
+        currentFileName_ = fileNames[0];
+        setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
+    }
+}
+
+void MainWindow::on_AddType_action()
+{
+    bool ok;
+    QString text = QInputDialog::getText(this, "Add type", "Type name:", QLineEdit::Normal, "", &ok);
+    if (ok && !text.isEmpty())
+    {
+        for (const auto& ti : fileInfo_.types)
+        {
+            if (QString::fromStdString(ti.yml.name) == text)
+            {
+                QMessageBox::critical(this, "Error", "Type with this NAME already exists: " + text);
+                return;
+            }
+        }
+
+        QWidget* widgetTabType = CreateTypeTabWidget(text);
+        dynamic_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, text);
+        dynamic_cast<QTabWidget*>(centralWidget())->setCurrentWidget(widgetTabType);
+
+        TabControls& tc = GetTabControls(text);
+        dynamic_cast<QLineEdit*>(tc.Info["NAME"])->setText(text);
+
+        yaml::type_info ti{};
+        ti.yml.name = text.toStdString();
+        fileInfo_.types.push_back(ti);
+    }
+}
+
+void MainWindow::on_RemoveType_action()
+{
+    QTabWidget* tabWidget = dynamic_cast<QTabWidget*>(centralWidget());
+    QString name = tabWidget->tabText(tabWidget->indexOf(tabWidget->currentWidget()));
+
+    if (name == "Main")
+    {
+        QMessageBox::warning(this, "parameters_composer", "Main page cannot be deleted");
+        return;
+    }
+
+    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+        QString("Are you sure want to delete type: %1?").arg(name), QMessageBox::No | QMessageBox::Yes);
+    if (resBtn != QMessageBox::Yes)
+        return;
+
+    QList<QString> usedInTypes;
+    QString arrayName = QString("array<%1>").arg(name);
+
+    // Update fileInfo_
+    for (auto& p : fileInfo_.parameters)
+    {
+        if (QString::fromStdString(p.yml.type) == name || QString::fromStdString(p.yml.type) == arrayName)
+        {
+            usedInTypes.push_back("Main");
+            break;
         }
     }
+    for (auto& t : fileInfo_.types)
+    {
+        for (auto& p : t.parameters)
+        {
+            if (QString::fromStdString(p.yml.type) == name || QString::fromStdString(p.yml.type) == arrayName)
+            {
+                usedInTypes.push_back(QString::fromStdString(t.yml.name));
+                break;
+            }
+        }
+    }
+
+    if (usedInTypes.size() > 0)
+    {
+        QString message = QString("Type %1 is used in other types:\n").arg(name);
+        for (const auto& s : usedInTypes)
+            message += s + "\n";
+        QMessageBox::StandardButton resBtn = QMessageBox::critical(this, "parameters_composer", message);
+        return;
+    }
+
+    tabWidget->removeTab(tabWidget->indexOf(tabWidget->currentWidget()));
+    auto it = std::find_if(fileInfo_.types.cbegin(), fileInfo_.types.cend(), [name](auto& t) { if (t.yml.name == name.toStdString()) return true; else return false; });
+    fileInfo_.types.erase(it);
 }
 
 void MainWindow::CreateMenu()
@@ -262,6 +427,18 @@ void MainWindow::CreateMenu()
     fileMenu->addAction(saveAsAct);
     fileMenu->addSeparator();
     fileMenu->addAction(quitAct);
+
+    QAction* addTypeAct = new QAction(tr("&Add"), this);
+    addTypeAct->setStatusTip(tr("Add type"));
+    connect(addTypeAct, &QAction::triggered, this, &MainWindow::on_AddType_action);
+
+    QAction* removeTypeAct = new QAction(tr("&Remove"), this);
+    removeTypeAct->setStatusTip(tr("Remove type"));
+    connect(removeTypeAct, &QAction::triggered, this, &MainWindow::on_RemoveType_action);
+
+    QMenu* typeMenu = menuBar()->addMenu("&Types");
+    typeMenu->addAction(addTypeAct);
+    typeMenu->addAction(removeTypeAct);
 }
 
 void MainWindow::CreateUi()
@@ -309,7 +486,6 @@ QWidget* MainWindow::CreateMainTabInfoWidget()
     int index = 0;
     AddPropertySubheader(gridLayoutInfo, "INFO", "font-weight: bold; font-size: 14px", index++);
     AddLineEditRequiredProperty(gridLayoutInfo, "ID", index++, "Main", MainWindow::ControlsGroup::Info);
-    //AddLineEditProperty(gridLayoutInfo, "ID", index++, tc.Info);
     AddLineEditProperty(gridLayoutInfo, "DISPLAY_NAME", index++, tc.Info);
     AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++, tc.Info);
     AddLineEditProperty(gridLayoutInfo, "CATEGORY", index++, tc.Info);
@@ -521,7 +697,7 @@ bool MainWindow::SaveCurrentParameters(QString type)
     {
         for (auto& t : fileInfo_.types)
         {
-            if (QString(t.yml.name.c_str()) == type)
+            if (QString::fromStdString(t.yml.name) == type)
             {
                 for (auto& p : t.parameters)
                 {
@@ -552,7 +728,7 @@ bool MainWindow::SaveCurrentInfo(QString type)
     {
         for (auto& t : fileInfo_.types)
         {
-            if (QString(t.yml.name.c_str()) == type)
+            if (QString::fromStdString(t.yml.name) == type)
             {
                 yaml::type_info ti;
                 if (!ReadCurrentTypeInfo(type, ti))
@@ -681,11 +857,11 @@ void MainWindow::AddTypes(ll* type, int level)
 
     for (const auto& ti : fileInfo_.types)
     {
-        if (QString(ti.yml.name.c_str()) == type->Name)
+        if (QString::fromStdString(ti.yml.name) == type->Name)
         {
             for (const auto& pi : ti.parameters)
             {
-                QString ts = QString(pi.yml.type.c_str());
+                QString ts = QString::fromStdString(pi.yml.type);
                 if (ts.startsWith("array") && ts.length() > 7)
                     ts = ts.mid(6, ts.length() - 7);
 
@@ -749,14 +925,14 @@ bool MainWindow::RearrangeTypes()
         found_new = false;
         for (const auto& ti : fileInfo_.types)
         {
-            QString tn = QString(ti.yml.name.c_str());
+            QString tn = QString::fromStdString(ti.yml.name);
             if (sorted_names.contains(tn))
                 continue;
 
             bool have_unresolved = false;
             for (const auto& pi : ti.parameters)
             {
-                QString ts = QString(pi.yml.type.c_str());
+                QString ts = QString::fromStdString(pi.yml.type);
                 if (ts.startsWith("array") && ts.length() > 7)
                     ts = ts.mid(6, ts.length() - 7);
 
@@ -780,7 +956,7 @@ bool MainWindow::RearrangeTypes()
         QMessageBox::warning(this, "Warning", "Type loop found");
         for (const auto& ti : fileInfo_.types)
         {
-            QString tn = QString(ti.yml.name.c_str());
+            QString tn = QString::fromStdString(ti.yml.name);
             if (!sorted_names.contains(tn))
                 sorted_names.push_back(tn);
         }
@@ -791,7 +967,7 @@ bool MainWindow::RearrangeTypes()
     {
         for (const auto& ti : fileInfo_.types)
         {
-            if (sn == QString(ti.yml.name.c_str()))
+            if (sn == QString::fromStdString(ti.yml.name))
             {
                 sorted_types.push_back(ti);
             }
@@ -1192,7 +1368,7 @@ void MainWindow::on_listWidgetProperties_currentItemChanged(QListWidgetItem *cur
     if (type != "Main")
     {
         for (auto& t : fileInfo_.types)
-            if (QString(t.yml.name.c_str()) == type)
+            if (QString::fromStdString(t.yml.name) == type)
             {
                 pis = &t.parameters;
                 break;
@@ -1203,7 +1379,7 @@ void MainWindow::on_listWidgetProperties_currentItemChanged(QListWidgetItem *cur
     if (current != nullptr)
     {
         for (const auto& p : *pis)
-            if (QString(p.yml.name.c_str()) == current->text())
+            if (QString::fromStdString(p.yml.name) == current->text())
             {
                 pic = p;
                 break;
@@ -1217,7 +1393,7 @@ void MainWindow::on_listWidgetProperties_currentItemChanged(QListWidgetItem *cur
             return;
 
         for (auto& p : *pis)
-            if (QString(p.yml.name.c_str()) == previous->text())
+            if (QString::fromStdString(p.yml.name) == previous->text())
             {
                 p = pip;
                 break;
@@ -1226,35 +1402,35 @@ void MainWindow::on_listWidgetProperties_currentItemChanged(QListWidgetItem *cur
 
     TabControls& tc = GetTabControls(type);
 
-    dynamic_cast<QLineEdit*>(tc.Properties["NAME"])->setText(QString(pic.yml.name.c_str()));
-    dynamic_cast<QLineEdit*>(tc.Properties["TYPE"])->setText(QString(pic.yml.type.c_str()));
-    dynamic_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->setText(QString(pic.yml.display_name.c_str()));
-    dynamic_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->setPlainText(QString(pic.yml.description.c_str()));
+    dynamic_cast<QLineEdit*>(tc.Properties["NAME"])->setText(QString::fromStdString(pic.yml.name));
+    dynamic_cast<QLineEdit*>(tc.Properties["TYPE"])->setText(QString::fromStdString(pic.yml.type));
+    dynamic_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->setText(QString::fromStdString(pic.yml.display_name));
+    dynamic_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->setPlainText(QString::fromStdString(pic.yml.description));
     dynamic_cast<QCheckBox*>(tc.Properties["REQUIRED"])->setChecked(pic.yml.required);
-    dynamic_cast<QLineEdit*>(tc.Properties["DEFAULT"])->setText(QString(pic.yml.default_.c_str()));
-    dynamic_cast<QLineEdit*>(tc.Properties["HINT"])->setText(QString(pic.yml.hint.c_str()));
+    dynamic_cast<QLineEdit*>(tc.Properties["DEFAULT"])->setText(QString::fromStdString(pic.yml.default_));
+    dynamic_cast<QLineEdit*>(tc.Properties["HINT"])->setText(QString::fromStdString(pic.yml.hint));
 
-    dynamic_cast<QLineEdit*>(tc.Properties["MIN"])->setText(QString(pic.yml.restrictions.min.c_str()));
-    dynamic_cast<QLineEdit*>(tc.Properties["MAX"])->setText(QString(pic.yml.restrictions.max.c_str()));
+    dynamic_cast<QLineEdit*>(tc.Properties["MIN"])->setText(QString::fromStdString(pic.yml.restrictions.min));
+    dynamic_cast<QLineEdit*>(tc.Properties["MAX"])->setText(QString::fromStdString(pic.yml.restrictions.max));
     QListWidget* listWidgetSet = dynamic_cast<QListWidget*>(tc.Properties["SET"]);
     listWidgetSet->clear();
     for (const auto& s : pic.yml.restrictions.set_)
-        listWidgetSet->addItem(QString(s.c_str()));
+        listWidgetSet->addItem(QString::fromStdString(s));
 
-    dynamic_cast<QLineEdit*>(tc.Properties["MIN_COUNT"])->setText(QString(pic.yml.restrictions.min_count.c_str()));
-    dynamic_cast<QLineEdit*>(tc.Properties["MAX_COUNT"])->setText(QString(pic.yml.restrictions.max_count.c_str()));
+    dynamic_cast<QLineEdit*>(tc.Properties["MIN_COUNT"])->setText(QString::fromStdString(pic.yml.restrictions.min_count));
+    dynamic_cast<QLineEdit*>(tc.Properties["MAX_COUNT"])->setText(QString::fromStdString(pic.yml.restrictions.max_count));
     QListWidget* listWidgetSetCount = dynamic_cast<QListWidget*>(tc.Properties["SET_COUNT"]);
     listWidgetSetCount->clear();
     for (const auto& s : pic.yml.restrictions.set_count)
-        listWidgetSetCount->addItem(QString(s.c_str()));
+        listWidgetSetCount->addItem(QString::fromStdString(s));
 
-    dynamic_cast<QLineEdit*>(tc.Properties["CATEGORY"])->setText(QString(pic.yml.restrictions.category.c_str()));
+    dynamic_cast<QLineEdit*>(tc.Properties["CATEGORY"])->setText(QString::fromStdString(pic.yml.restrictions.category));
     QListWidget* listWidgetIds = dynamic_cast<QListWidget*>(tc.Properties["IDS"]);
     listWidgetIds->clear();
     for (const auto& s : pic.yml.restrictions.ids)
-        listWidgetIds->addItem(QString(s.c_str()));
+        listWidgetIds->addItem(QString::fromStdString(s));
 
-    dynamic_cast<QLineEdit*>(tc.Properties["MAX_LENGTH"])->setText(QString(pic.yml.restrictions.max_length.c_str()));
+    dynamic_cast<QLineEdit*>(tc.Properties["MAX_LENGTH"])->setText(QString::fromStdString(pic.yml.restrictions.max_length));
 }
 
 
@@ -1291,17 +1467,99 @@ void MainWindow::on_editingFinished()
         // Type NAME
         QTabWidget* tabWidget = dynamic_cast<QTabWidget*>(centralWidget());
 
-        int index = tabWidget->currentIndex();
-        QString oldName = tabWidget->tabText(index);
+        QString oldName = type;
+        QString newName = lineEdit->text();
 
         for (const auto& ti : fileInfo_.types)
         {
-            if (QString::fromStdString(ti.yml.name) == lineEdit->text())
+            if (QString::fromStdString(ti.yml.name) == newName)
             {
-                QMessageBox::critical(this, "Error", "Type with this NAME already exists: " + lineEdit->text());
+                QMessageBox::critical(this, "Error", "Type with this NAME already exists: " + newName);
                 lineEdit->setText(oldName);
                 return;
             }
+        }
+
+        // Update controls
+        for (int i = 0; i < tabWidget->count(); i++)
+        {
+            if (tabWidget->tabText(i) == oldName)
+            {
+                tabWidget->setTabText(i, newName);
+                break;
+            }
+        }
+
+        QString arrayOldName = QString("array<%1>").arg(oldName);
+        QString arrayNewName = QString("array<%1>").arg(newName);
+
+
+        TabControls& tc_m = GetTabControls("Main");
+        QLineEdit* t_m = dynamic_cast<QLineEdit*>(tc_m.Properties["TYPE"]);
+        if (t_m->text() == oldName)
+        {
+            t_m->setText(newName);
+        }
+        if (t_m->text() == arrayOldName)
+        {
+            t_m->setText(arrayNewName);
+        }
+
+        for (auto& t : fileInfo_.types)
+        {
+            TabControls& tc_t = GetTabControls(QString::fromStdString(t.yml.name));
+            QLineEdit* t_t = dynamic_cast<QLineEdit*>(tc_m.Properties["TYPE"]);
+            if (t_t->text() == oldName)
+            {
+                t_t->setText(newName);
+            }
+            if (t_t->text() == arrayOldName)
+            {
+                t_t->setText(arrayNewName);
+            }
+        }
+
+        RenameTabControls(oldName, newName);
+
+        // Update fileInfo_
+        for (auto& t : fileInfo_.types)
+        {
+            if (QString::fromStdString(t.yml.name) == type)
+            {
+                t.yml.name = newName.toStdString();
+                break;
+            }
+        }
+
+        for (auto& p : fileInfo_.parameters)
+        {
+            if (QString::fromStdString(p.yml.type) == oldName)
+            {
+                p.yml.type = newName.toStdString();
+                break;
+            }
+            if (QString::fromStdString(p.yml.type) == arrayOldName)
+            {
+                p.yml.type = arrayNewName.toStdString();
+                break;
+            }
+        }
+        for (auto& t : fileInfo_.types)
+        {
+            for (auto& p : t.parameters)
+            {
+                if (QString::fromStdString(p.yml.type) == oldName)
+                {
+                    p.yml.type = newName.toStdString();
+                    break;
+                }
+                if (QString::fromStdString(p.yml.type) == arrayOldName)
+                {
+                    p.yml.type = arrayNewName.toStdString();
+                    break;
+                }
+            }
+            break;
         }
     }
     else if (group == MainWindow::ControlsGroup::Properties && name == "NAME")
@@ -1311,27 +1569,28 @@ void MainWindow::on_editingFinished()
         if (listWidget->selectedItems().size() == 0) return; // !!!
 
         QString oldName = listWidget->selectedItems()[0]->text();
+        QString newName = lineEdit->text();
 
         for (int i = 0; i < listWidget->count(); ++i)
         {
-            if (listWidget->item(i)->text() == lineEdit->text() && listWidget->selectedItems()[0] != listWidget->item(i))
+            if (listWidget->item(i)->text() == newName && listWidget->selectedItems()[0] != listWidget->item(i))
             {
-                QMessageBox::critical(this, "Error", "Property with this NAME already exists: " + lineEdit->text());
+                QMessageBox::critical(this, "Error", "Property with this NAME already exists: " + newName);
                 if (listWidget->selectedItems().size() > 0)
                     lineEdit->setText(oldName);
                 return;
             }
         }
 
-        listWidget->selectedItems()[0]->setText(lineEdit->text());
+        listWidget->selectedItems()[0]->setText(newName);
 
         if (type == "Main")
         {
             for (auto& p : fileInfo_.parameters)
             {
-                if (QString(p.yml.name.c_str()) == oldName)
+                if (QString::fromStdString(p.yml.name) == oldName)
                 {
-                    p.yml.name = lineEdit->text().toStdString();
+                    p.yml.name = newName.toStdString();
                     break;
                 }
             }
@@ -1340,13 +1599,13 @@ void MainWindow::on_editingFinished()
         {
             for (auto& t : fileInfo_.types)
             {
-                if (QString(t.yml.name.c_str()) == type)
+                if (QString::fromStdString(t.yml.name) == type)
                 {
                     for (auto& p : t.parameters)
                     {
-                        if (QString(p.yml.name.c_str()) == oldName)
+                        if (QString::fromStdString(p.yml.name) == oldName)
                         {
-                            p.yml.name = lineEdit->text().toStdString();
+                            p.yml.name = newName.toStdString();
                             break;
                         }
                     }
