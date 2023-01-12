@@ -84,23 +84,11 @@ private:
     void CreateUi();
     QWidget* CreateMainTabWidget();
     QWidget* CreateTypeTabWidget(QString type);
-
     QWidget* CreateMainTabInfoWidget();
     QWidget* CreateTypeTabInfoWidget(QString type);
-
     QWidget* CreatePropertyListWidget(QString type);
     QWidget* CreatePropertiesWidget(QString type);
-
     QWidget* CreateListControlWidget(int buttonSize, QString type, ControlsGroup group, QString name);
-
-
-
-    // Change to QString type, ControlsGroup group !!!
-    //void AddLineEditProperty(QGridLayout* gridLayout, QString name, int index, QMap<QString, QObject*>& mapControls);
-    //void AddPlainTextEditProperty(QGridLayout* gridLayout, QString name, int index, QMap<QString, QObject*>& mapControls);
-    //void AddCheckBoxProperty(QGridLayout* gridLayout, QString name, int index, QMap<QString, QObject*>& mapControls);
-    //void AddPropertySubheader(QGridLayout* gridLayout, QString text, QString style, int index);
-    //void AddListProperty(QGridLayout* gridLayout, QString name, int index, QString tabId, QString listControlId, QMap<QString, QObject*>& mapControls, QString type);
 
     void AddLineEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
     void AddPlainTextEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
@@ -108,9 +96,7 @@ private:
     void AddPropertySubheader(QGridLayout* gridLayout, QString text, QString style, int index);
     void AddListProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
     void AddLineEditRequiredProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
-    //void AddGrid(QGridLayout* gridLayout, QString name, QString type, ControlsGroup group);
     void AddGroupWidget(QWidget* groupWidget, QString name, QString type, ControlsGroup group);
-
 
     bool ReadCurrentParameters(QString type, yaml::parameter_info& pi);
     bool SaveCurrentParameters(QString type);
@@ -136,6 +122,5 @@ private slots:
     void on_listWidgetProperties_currentItemChanged(QListWidgetItem *current, QListWidgetItem *previous);
     void on_toolButtonRemoveProperty_clicked();
     void on_editingFinished();
-    //void OnEditingFinished(QString type, ControlsGroup group, QString name);
 };
 #endif // MAINWINDOW_H
