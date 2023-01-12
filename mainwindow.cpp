@@ -57,7 +57,7 @@ MainWindow::TabControls& MainWindow::GetTabControls(QString type)
 
     if (index == -1)
     {
-        MainWindow::TabControls tc{};
+        TabControls tc{};
         tc.Name = type;
         tabs_.push_back(std::move(tc));
         index = tabs_.size() - 1;
@@ -78,7 +78,7 @@ bool MainWindow::IsTabControlsExists(QString type)
     return found;
 }
 
-QMap<QString, QObject*>& MainWindow::GetControls(QString type, MainWindow::ControlsGroup group)
+QMap<QString, QObject*>& MainWindow::GetControls(QString type, ControlsGroup group)
 {
     MainWindow::TabControls& tc = GetTabControls(type);
     switch (group)
@@ -118,11 +118,11 @@ void MainWindow::on_NewFile_action()
     if (resBtn != QMessageBox::Yes)
         return;
 
-    while (dynamic_cast<QTabWidget*>(centralWidget())->count() > 0)
-        dynamic_cast<QTabWidget*>(centralWidget())->removeTab(0);
+    while (qobject_cast<QTabWidget*>(centralWidget())->count() > 0)
+        qobject_cast<QTabWidget*>(centralWidget())->removeTab(0);
 
     QWidget* widgetTabProperties = CreateMainTabWidget();
-    dynamic_cast<QTabWidget*>(centralWidget())->addTab(widgetTabProperties, "Main");
+    qobject_cast<QTabWidget*>(centralWidget())->addTab(widgetTabProperties, "Main");
 
     fileInfo_ = {};
 
@@ -167,7 +167,7 @@ void MainWindow::on_OpenFile_action()
             fileInfo_ = parser.get_file_info();
 
             {
-                TabControls& tc = tabs_[0];
+                TabControls& tc = GetTabControls("Main");
 
                 qobject_cast<QLineEdit*>(tc.Info["ID"])->setText(QString::fromStdString(fileInfo_.info.yml.id));
                 qobject_cast<QLineEdit*>(tc.Info["DISPLAY_NAME"])->setText(QString::fromStdString(fileInfo_.info.yml.display_name));
@@ -179,7 +179,7 @@ void MainWindow::on_OpenFile_action()
                 qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setText(QString::fromStdString(fileInfo_.info.yml.wiki));
                 qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setCursorPosition(0);
 
-                QListWidget* listWidget = dynamic_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+                QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
                 listWidget->clear();
                 for (const auto& pi : fileInfo_.parameters)
                     listWidget->addItem(QString::fromStdString(pi.yml.name));
@@ -187,33 +187,33 @@ void MainWindow::on_OpenFile_action()
                     listWidget->setCurrentRow(0);
             }
 
-            while (dynamic_cast<QTabWidget*>(centralWidget())->count() > 1)
-                dynamic_cast<QTabWidget*>(centralWidget())->removeTab(1);
+            while (qobject_cast<QTabWidget*>(centralWidget())->count() > 1)
+                qobject_cast<QTabWidget*>(centralWidget())->removeTab(1);
 
             for (const auto& ti : fileInfo_.types)
             {
                 QString type = QString::fromStdString(ti.yml.name);
 
                 QWidget* widgetTabType = CreateTypeTabWidget(type);
-                dynamic_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, type);
+                qobject_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, type);
                 
                 TabControls& tc = GetTabControls(type);
 
-                dynamic_cast<QLineEdit*>(tc.Info["NAME"])->setText(QString::fromStdString(ti.yml.name));
-                dynamic_cast<QLineEdit*>(tc.Info["TYPE"])->setText(QString::fromStdString(ti.yml.type));
-                dynamic_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString::fromStdString(ti.yml.description));
+                qobject_cast<QLineEdit*>(tc.Info["NAME"])->setText(QString::fromStdString(ti.yml.name));
+                qobject_cast<QLineEdit*>(tc.Info["TYPE"])->setText(QString::fromStdString(ti.yml.type));
+                qobject_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString::fromStdString(ti.yml.description));
 
-                QListWidget* listWidgetValues = dynamic_cast<QListWidget*>(tc.Info["VALUES"]);
+                QListWidget* listWidgetValues = qobject_cast<QListWidget*>(tc.Info["VALUES"]);
                 listWidgetValues->clear();
                 for (const auto& v : ti.yml.values)
                     listWidgetValues->addItem(QString::fromStdString(v.first) + " -> " + QString::fromStdString(v.second));
 
-                QListWidget* listWidgetIncludes = dynamic_cast<QListWidget*>(tc.Info["INCLUDES"]);
+                QListWidget* listWidgetIncludes = qobject_cast<QListWidget*>(tc.Info["INCLUDES"]);
                 listWidgetIncludes->clear();
                 for (const auto& v : ti.yml.includes)
                     listWidgetIncludes->addItem(QString::fromStdString(v));
 
-                QListWidget* listWidget = dynamic_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+                QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
                 listWidget->clear();
                 for (const auto& pi : ti.parameters)
                     listWidget->addItem(QString::fromStdString(pi.yml.name));
@@ -327,11 +327,11 @@ void MainWindow::on_AddType_action()
         }
 
         QWidget* widgetTabType = CreateTypeTabWidget(text);
-        dynamic_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, text);
-        dynamic_cast<QTabWidget*>(centralWidget())->setCurrentWidget(widgetTabType);
+        qobject_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, text);
+        qobject_cast<QTabWidget*>(centralWidget())->setCurrentWidget(widgetTabType);
 
         TabControls& tc = GetTabControls(text);
-        dynamic_cast<QLineEdit*>(tc.Info["NAME"])->setText(text);
+        qobject_cast<QLineEdit*>(tc.Info["NAME"])->setText(text);
 
         yaml::type_info ti{};
         ti.yml.name = text.toStdString();
@@ -341,7 +341,7 @@ void MainWindow::on_AddType_action()
 
 void MainWindow::on_RemoveType_action()
 {
-    QTabWidget* tabWidget = dynamic_cast<QTabWidget*>(centralWidget());
+    QTabWidget* tabWidget = qobject_cast<QTabWidget*>(centralWidget());
     QString name = tabWidget->tabText(tabWidget->indexOf(tabWidget->currentWidget()));
 
     if (name == "Main")
@@ -453,7 +453,6 @@ void MainWindow::CreateUi()
 
     setCentralWidget(tabWidget);
 }
-
 QWidget* MainWindow::CreateMainTabWidget()
 {
     QWidget* widgetTabProperties = new QWidget;
@@ -462,6 +461,10 @@ QWidget* MainWindow::CreateMainTabWidget()
     QWidget* widgetSplitterPropertyList = CreatePropertyListWidget("Main");
     QWidget* widgetSplitterProperties = CreatePropertiesWidget("Main");
 
+    AddGroupWidget(widgetSplitterInfo, "INFO_GROUP", "Main", ControlsGroup::Info);
+    AddGroupWidget(widgetSplitterPropertyList, "PROPERTY_LIST_GROUP", "Main", ControlsGroup::PropertyList);
+    AddGroupWidget(widgetSplitterProperties, "PROPERTIES_GROUP", "Main", ControlsGroup::Properties);
+
     QSplitter* tabHSplitter = new QSplitter(Qt::Horizontal);
     tabHSplitter->addWidget(widgetSplitterInfo);
     tabHSplitter->addWidget(widgetSplitterPropertyList);
@@ -469,6 +472,7 @@ QWidget* MainWindow::CreateMainTabWidget()
     tabHSplitter->setStretchFactor(0, 1);
     tabHSplitter->setStretchFactor(1, 0);
     tabHSplitter->setStretchFactor(2, 1);
+    widgetSplitterProperties->setEnabled(false);
 
     QVBoxLayout* vBoxLayoutSplitter = new QVBoxLayout;
     vBoxLayoutSplitter->addWidget(tabHSplitter);
@@ -481,18 +485,19 @@ QWidget* MainWindow::CreateMainTabInfoWidget()
 {
     QGridLayout* gridLayoutInfo = new QGridLayout;
  
-    TabControls& tc = GetTabControls("Main");
+    QString type("Main");
+    TabControls& tc = GetTabControls(type);
 
     int index = 0;
     AddPropertySubheader(gridLayoutInfo, "INFO", "font-weight: bold; font-size: 14px", index++);
-    AddLineEditRequiredProperty(gridLayoutInfo, "ID", index++, "Main", MainWindow::ControlsGroup::Info);
-    AddLineEditProperty(gridLayoutInfo, "DISPLAY_NAME", index++, tc.Info);
-    AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++, tc.Info);
-    AddLineEditProperty(gridLayoutInfo, "CATEGORY", index++, tc.Info);
-    AddLineEditProperty(gridLayoutInfo, "PICTOGRAM", index++, tc.Info);
-    AddLineEditProperty(gridLayoutInfo, "HINT", index++, tc.Info);
-    AddLineEditProperty(gridLayoutInfo, "AUTHOR", index++, tc.Info);
-    AddLineEditProperty(gridLayoutInfo, "WIKI", index++, tc.Info);
+    AddLineEditRequiredProperty(gridLayoutInfo, "ID", index++, type, ControlsGroup::Info);
+    AddLineEditProperty(gridLayoutInfo, "DISPLAY_NAME", index++, type, ControlsGroup::Info);
+    AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++, type, ControlsGroup::Info);
+    AddLineEditProperty(gridLayoutInfo, "CATEGORY", index++, type, ControlsGroup::Info);
+    AddLineEditProperty(gridLayoutInfo, "PICTOGRAM", index++, type, ControlsGroup::Info);
+    AddLineEditProperty(gridLayoutInfo, "HINT", index++, type, ControlsGroup::Info);
+    AddLineEditProperty(gridLayoutInfo, "AUTHOR", index++, type, ControlsGroup::Info);
+    AddLineEditProperty(gridLayoutInfo, "WIKI", index++, type, ControlsGroup::Info);
 
     QWidget* widgetSplitterInfo = new QWidget;
     widgetSplitterInfo->setLayout(gridLayoutInfo);
@@ -505,9 +510,9 @@ QWidget* MainWindow::CreatePropertyListWidget(QString type)
 {
     QLabel* labelPropertyListHeader = new QLabel;
     labelPropertyListHeader->setStyleSheet("font-weight: bold; font-size: 14px");
-    labelPropertyListHeader->setText("PROPERITES");
+    labelPropertyListHeader->setText("PROPERTIES");
 
-    QWidget* widgetPropertyListButtons = CreateListControlWidget(32, "PropertiesTab", "PropertyList", type);
+    QWidget* widgetPropertyListButtons = CreateListControlWidget(32, type, ControlsGroup::PropertyList, "PROPERTIES");
 
     QListWidget* listWidget = new QListWidget;
     listWidget->setProperty("type", type);
@@ -522,34 +527,40 @@ QWidget* MainWindow::CreatePropertyListWidget(QString type)
     QWidget* widgetSplitterPropertyList = new QWidget;
     widgetSplitterPropertyList->setLayout(vBoxLayoutPropertyList);
 
-    TabControls& tc = GetTabControls(type);
-    tc.PropertyList["PROPERTIES"] = listWidget;
+    auto& tc = GetControls(type, ControlsGroup::PropertyList);
+    tc["PROPERTIES"] = listWidget;
 
     return widgetSplitterPropertyList;
 }
 
-void MainWindow::AddLineEditProperty(QGridLayout* gridLayout, QString name, int index, QMap<QString, QObject*>& mapControls)
+void MainWindow::AddLineEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group)
 {
     gridLayout->addWidget(new QLabel(name), index, 0);
     QLineEdit* lineEdit = new QLineEdit;
     gridLayout->addWidget(lineEdit, index, 1);
-    mapControls[name] = lineEdit;
+
+    auto& tc = GetControls(type, group);
+    tc[name] = lineEdit;
 }
 
-void MainWindow::AddPlainTextEditProperty(QGridLayout* gridLayout, QString name, int index, QMap<QString, QObject*>& mapControls)
+void MainWindow::AddPlainTextEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group)
 {
     gridLayout->addWidget(new QLabel(name), index, 0);
     QPlainTextEdit* plainTextEdit = new QPlainTextEdit;
     gridLayout->addWidget(plainTextEdit, index, 1);
-    mapControls[name] = plainTextEdit;
+
+    auto& tc = GetControls(type, group);
+    tc[name] = plainTextEdit;
 }
 
-void MainWindow::AddCheckBoxProperty(QGridLayout* gridLayout, QString name, int index, QMap<QString, QObject*>& mapControls)
+void MainWindow::AddCheckBoxProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group)
 {
     gridLayout->addWidget(new QLabel(name), index, 0);
     QCheckBox* checkBox = new QCheckBox;
     gridLayout->addWidget(checkBox, index, 1);
-    mapControls[name] = checkBox;
+
+    auto& tc = GetControls(type, group);
+    tc[name] = checkBox;
 }
 
 void MainWindow::AddPropertySubheader(QGridLayout* gridLayout, QString text, QString style, int index)
@@ -562,11 +573,11 @@ void MainWindow::AddPropertySubheader(QGridLayout* gridLayout, QString text, QSt
 
 //QComboBox
 
-void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int index, QString tabId, QString listControlId, QMap<QString, QObject*>& mapControls, QString type)
+//void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int index, QString tabId, QString listControlId, QMap<QString, QObject*>& mapControls, QString type)
+void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group)
 {
-    QWidget* widgetPropertiesRestrictionsSetButtons = CreateListControlWidget(24, tabId, listControlId, type);
+    QWidget* widgetPropertiesRestrictionsSetButtons = CreateListControlWidget(24, type, group, name);
     QListWidget* listWidget = new QListWidget;
-    //listWidget->setProperty("type", type);
     QVBoxLayout* vBoxLayoutPropertiesRestrictionsSet = new QVBoxLayout;
     vBoxLayoutPropertiesRestrictionsSet->addWidget(widgetPropertiesRestrictionsSetButtons);
     vBoxLayoutPropertiesRestrictionsSet->addWidget(listWidget, 1);
@@ -576,7 +587,9 @@ void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int inde
     widgetPropertiesRestrictionsSet->setLayout(vBoxLayoutPropertiesRestrictionsSet);
     gridLayout->addWidget(new QLabel(name), index, 0);
     gridLayout->addWidget(widgetPropertiesRestrictionsSet, index, 1);
-    mapControls[name] = listWidget;
+
+    auto& tc = GetControls(type, group);
+    tc[name] = listWidget;
 }
 
 void MainWindow::AddLineEditRequiredProperty(QGridLayout* gridLayout, QString name, int index, QString type, MainWindow::ControlsGroup group)
@@ -590,47 +603,55 @@ void MainWindow::AddLineEditRequiredProperty(QGridLayout* gridLayout, QString na
     lineEdit->setProperty("name", name);
     lineEdit->setProperty("group", static_cast<int>(group));
     lineEdit->setProperty("type", type);
+    
+    //connect(lineEdit, &QLineEdit::editingFinished, this, std::bind(&MainWindow::OnEditingFinished, this, type, group, name));
     connect(lineEdit, &QLineEdit::editingFinished, this, &MainWindow::on_editingFinished);
     gridLayout->addWidget(lineEdit, index, 1);
 
-    QMap<QString, QObject*>& cnt = GetControls(type, group);
-    cnt[name] = lineEdit;
+    auto& tc = GetControls(type, group);
+    tc[name] = lineEdit;
+}
+
+void MainWindow::AddGroupWidget(QWidget* groupWidget, QString name, QString type, ControlsGroup group)
+{
+    auto& tc = GetControls(type, group);
+    tc[name] = groupWidget;
 }
 
 bool MainWindow::ReadCurrentParameters(QString type, yaml::parameter_info& pi)
 {
     TabControls& tc = GetTabControls(type);
 
-    pi.yml.name = dynamic_cast<QLineEdit*>(tc.Properties["NAME"])->text().toStdString();
-    pi.yml.type = dynamic_cast<QLineEdit*>(tc.Properties["TYPE"])->text().toStdString();
-    pi.yml.display_name = dynamic_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->text().toStdString();
-    pi.yml.description = dynamic_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->toPlainText().toStdString();
-    pi.yml.required = dynamic_cast<QCheckBox*>(tc.Properties["REQUIRED"])->isChecked();
-    pi.yml.default_ = dynamic_cast<QLineEdit*>(tc.Properties["DEFAULT"])->text().toStdString();
-    pi.yml.hint = dynamic_cast<QLineEdit*>(tc.Properties["HINT"])->text().toStdString();
+    pi.yml.name = qobject_cast<QLineEdit*>(tc.Properties["NAME"])->text().toStdString();
+    pi.yml.type = qobject_cast<QLineEdit*>(tc.Properties["TYPE"])->text().toStdString();
+    pi.yml.display_name = qobject_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->text().toStdString();
+    pi.yml.description = qobject_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->toPlainText().toStdString();
+    pi.yml.required = qobject_cast<QCheckBox*>(tc.Properties["REQUIRED"])->isChecked();
+    pi.yml.default_ = qobject_cast<QLineEdit*>(tc.Properties["DEFAULT"])->text().toStdString();
+    pi.yml.hint = qobject_cast<QLineEdit*>(tc.Properties["HINT"])->text().toStdString();
 
-    pi.yml.restrictions.min = dynamic_cast<QLineEdit*>(tc.Properties["MIN"])->text().toStdString();
-    pi.yml.restrictions.max = dynamic_cast<QLineEdit*>(tc.Properties["MAX"])->text().toStdString();
+    pi.yml.restrictions.min = qobject_cast<QLineEdit*>(tc.Properties["MIN"])->text().toStdString();
+    pi.yml.restrictions.max = qobject_cast<QLineEdit*>(tc.Properties["MAX"])->text().toStdString();
     pi.yml.restrictions.set_.clear();
-    QListWidget* listWidgetSet = dynamic_cast<QListWidget*>(tc.Properties["SET"]);
+    QListWidget* listWidgetSet = qobject_cast<QListWidget*>(tc.Properties["SET"]);
     for (int i = 0; i < listWidgetSet->count(); ++i)
         pi.yml.restrictions.set_.push_back(listWidgetSet->item(i)->text().toStdString());
 
-    pi.yml.restrictions.min_count = dynamic_cast<QLineEdit*>(tc.Properties["MIN_COUNT"])->text().toStdString();
-    pi.yml.restrictions.max_count = dynamic_cast<QLineEdit*>(tc.Properties["MAX_COUNT"])->text().toStdString();
+    pi.yml.restrictions.min_count = qobject_cast<QLineEdit*>(tc.Properties["MIN_COUNT"])->text().toStdString();
+    pi.yml.restrictions.max_count = qobject_cast<QLineEdit*>(tc.Properties["MAX_COUNT"])->text().toStdString();
     pi.yml.restrictions.set_count.clear();
-    QListWidget* listWidgetSetCount = dynamic_cast<QListWidget*>(tc.Properties["SET_COUNT"]);
+    QListWidget* listWidgetSetCount = qobject_cast<QListWidget*>(tc.Properties["SET_COUNT"]);
     for (int i = 0; i < listWidgetSetCount->count(); ++i)
         pi.yml.restrictions.set_count.push_back(listWidgetSetCount->item(i)->text().toStdString());
 
-    pi.yml.restrictions.category = dynamic_cast<QLineEdit*>(tc.Properties["CATEGORY"])->text().toStdString();
+    pi.yml.restrictions.category = qobject_cast<QLineEdit*>(tc.Properties["CATEGORY"])->text().toStdString();
 
     pi.yml.restrictions.ids.clear();
-    QListWidget* listWidgetIds = dynamic_cast<QListWidget*>(tc.Properties["IDS"]);
+    QListWidget* listWidgetIds = qobject_cast<QListWidget*>(tc.Properties["IDS"]);
     for (int i = 0; i < listWidgetIds->count(); ++i)
         pi.yml.restrictions.ids.push_back(listWidgetIds->item(i)->text().toStdString());
 
-    pi.yml.restrictions.max_length = dynamic_cast<QLineEdit*>(tc.Properties["MAX_LENGTH"])->text().toStdString();
+    pi.yml.restrictions.max_length = qobject_cast<QLineEdit*>(tc.Properties["MAX_LENGTH"])->text().toStdString();
 
     return true;
 }
@@ -639,14 +660,14 @@ bool MainWindow::ReadCurrentMainInfo(QString type, yaml::info_info& mi)
 {
     TabControls& tc = GetTabControls("Main");
 
-    mi.yml.id = dynamic_cast<QLineEdit*>(tc.Info["ID"])->text().toStdString();
-    mi.yml.display_name = dynamic_cast<QLineEdit*>(tc.Info["DISPLAY_NAME"])->text().toStdString();
-    mi.yml.description = dynamic_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->toPlainText().toStdString();
-    mi.yml.category = dynamic_cast<QLineEdit*>(tc.Info["CATEGORY"])->text().toStdString();
-    mi.yml.pictogram = dynamic_cast<QLineEdit*>(tc.Info["PICTOGRAM"])->text().toStdString();
-    mi.yml.hint = dynamic_cast<QLineEdit*>(tc.Info["HINT"])->text().toStdString();
-    mi.yml.author = dynamic_cast<QLineEdit*>(tc.Info["AUTHOR"])->text().toStdString();
-    mi.yml.wiki = dynamic_cast<QLineEdit*>(tc.Info["WIKI"])->text().toStdString();
+    mi.yml.id = qobject_cast<QLineEdit*>(tc.Info["ID"])->text().toStdString();
+    mi.yml.display_name = qobject_cast<QLineEdit*>(tc.Info["DISPLAY_NAME"])->text().toStdString();
+    mi.yml.description = qobject_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->toPlainText().toStdString();
+    mi.yml.category = qobject_cast<QLineEdit*>(tc.Info["CATEGORY"])->text().toStdString();
+    mi.yml.pictogram = qobject_cast<QLineEdit*>(tc.Info["PICTOGRAM"])->text().toStdString();
+    mi.yml.hint = qobject_cast<QLineEdit*>(tc.Info["HINT"])->text().toStdString();
+    mi.yml.author = qobject_cast<QLineEdit*>(tc.Info["AUTHOR"])->text().toStdString();
+    mi.yml.wiki = qobject_cast<QLineEdit*>(tc.Info["WIKI"])->text().toStdString();
 
     return true;
 }
@@ -655,12 +676,12 @@ bool MainWindow::ReadCurrentTypeInfo(QString type, yaml::type_info& ti)
 {
     TabControls& tc = GetTabControls(type);
 
-    ti.yml.name = dynamic_cast<QLineEdit*>(tc.Info["NAME"])->text().toStdString();
-    ti.yml.type = dynamic_cast<QLineEdit*>(tc.Info["TYPE"])->text().toStdString();
-    ti.yml.description = dynamic_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->toPlainText().toStdString();
+    ti.yml.name = qobject_cast<QLineEdit*>(tc.Info["NAME"])->text().toStdString();
+    ti.yml.type = qobject_cast<QLineEdit*>(tc.Info["TYPE"])->text().toStdString();
+    ti.yml.description = qobject_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->toPlainText().toStdString();
 
     ti.yml.values.clear();
-    QListWidget* listWidgetValues = dynamic_cast<QListWidget*>(tc.Info["VALUES"]);
+    QListWidget* listWidgetValues = qobject_cast<QListWidget*>(tc.Info["VALUES"]);
     for (int i = 0; i < listWidgetValues->count(); ++i)
     {
         QString v = listWidgetValues->item(i)->text();
@@ -669,7 +690,7 @@ bool MainWindow::ReadCurrentTypeInfo(QString type, yaml::type_info& ti)
     }
 
     ti.yml.includes.clear();
-    QListWidget* listWidgetIncludes = dynamic_cast<QListWidget*>(tc.Info["INCLUDES"]);
+    QListWidget* listWidgetIncludes = qobject_cast<QListWidget*>(tc.Info["INCLUDES"]);
     for (int i = 0; i < listWidgetIncludes->count(); ++i)
         ti.yml.includes.push_back(listWidgetIncludes->item(i)->text().toStdString());
 
@@ -1195,29 +1216,27 @@ QWidget* MainWindow::CreatePropertiesWidget(QString type)
 {
     QGridLayout* gridLayoutProperties = new QGridLayout;
 
-    TabControls& tc = GetTabControls(type);
-
     int index = 0;
     AddLineEditRequiredProperty(gridLayoutProperties, "NAME", index++, type, MainWindow::ControlsGroup::Properties);
     AddLineEditRequiredProperty(gridLayoutProperties, "TYPE", index++, type, MainWindow::ControlsGroup::Properties);
-    AddLineEditProperty(gridLayoutProperties, "DISPLAY_NAME", index++, tc.Properties);
-    AddPlainTextEditProperty(gridLayoutProperties, "DESCRIPTION", index++, tc.Properties);
-    AddCheckBoxProperty(gridLayoutProperties, "REQUIRED", index++, tc.Properties);
-    AddLineEditProperty(gridLayoutProperties, "DEFAULT", index++, tc.Properties);
-    AddLineEditProperty(gridLayoutProperties, "HINT", index++, tc.Properties);
+    AddLineEditProperty(gridLayoutProperties, "DISPLAY_NAME", index++, type, MainWindow::ControlsGroup::Properties);
+    AddPlainTextEditProperty(gridLayoutProperties, "DESCRIPTION", index++, type, MainWindow::ControlsGroup::Properties);
+    AddCheckBoxProperty(gridLayoutProperties, "REQUIRED", index++, type, MainWindow::ControlsGroup::Properties);
+    AddLineEditProperty(gridLayoutProperties, "DEFAULT", index++, type, MainWindow::ControlsGroup::Properties);
+    AddLineEditProperty(gridLayoutProperties, "HINT", index++, type, MainWindow::ControlsGroup::Properties);
     AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (base)", "font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutProperties, "MIN", index++, tc.Properties);
-    AddLineEditProperty(gridLayoutProperties, "MAX", index++, tc.Properties);
-    AddListProperty(gridLayoutProperties, "SET", index++, "PropertiesTab", "RestrictionsSet", tc.Properties, type);
+    AddLineEditProperty(gridLayoutProperties, "MIN", index++, type, MainWindow::ControlsGroup::Properties);
+    AddLineEditProperty(gridLayoutProperties, "MAX", index++, type, MainWindow::ControlsGroup::Properties);
+    AddListProperty(gridLayoutProperties, "SET", index++, type, MainWindow::ControlsGroup::Properties);
     AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (array)", "font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutProperties, "MIN_COUNT", index++, tc.Properties);
-    AddLineEditProperty(gridLayoutProperties, "MAX_COUNT", index++, tc.Properties);
-    AddListProperty(gridLayoutProperties, "SET_COUNT", index++, "PropertiesTab", "RestrictionsSetCount", tc.Properties, type);
+    AddLineEditProperty(gridLayoutProperties, "MIN_COUNT", index++, type, MainWindow::ControlsGroup::Properties);
+    AddLineEditProperty(gridLayoutProperties, "MAX_COUNT", index++, type, MainWindow::ControlsGroup::Properties);
+    AddListProperty(gridLayoutProperties, "SET_COUNT", index++, type, MainWindow::ControlsGroup::Properties);
     AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (unit)", "font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutProperties, "CATEGORY", index++, tc.Properties);
-    AddListProperty(gridLayoutProperties, "IDS", index++, "PropertiesTab", "RestrictionsIds", tc.Properties, type);
+    AddLineEditProperty(gridLayoutProperties, "CATEGORY", index++, type, MainWindow::ControlsGroup::Properties);
+    AddListProperty(gridLayoutProperties, "IDS", index++, type, MainWindow::ControlsGroup::Properties);
     AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (path)", "font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutProperties, "MAX_LENGTH", index++, tc.Properties);
+    AddLineEditProperty(gridLayoutProperties, "MAX_LENGTH", index++, type, MainWindow::ControlsGroup::Properties);
 
     gridLayoutProperties->setRowStretch(gridLayoutProperties->rowCount(), 1);
 
@@ -1232,7 +1251,7 @@ QWidget* MainWindow::CreatePropertiesWidget(QString type)
     return scrollAreaProperties;
 }
 
-QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString tabId, QString listControlId, QString type)
+QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, ControlsGroup group, QString name)
 {
     QHBoxLayout* hBoxLayoutPropertyListButtons = new QHBoxLayout;
     hBoxLayoutPropertyListButtons->setMargin(0);
@@ -1241,18 +1260,21 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString tabId, QStr
     toolButtonPropertyListAdd->setFixedSize(buttonSize, buttonSize);
     toolButtonPropertyListAdd->setIconSize(QSize(buttonSize, buttonSize));
     toolButtonPropertyListAdd->setIcon(QIcon(":/images/plus.png"));
-    toolButtonPropertyListAdd->setProperty("tabId", tabId);
-    toolButtonPropertyListAdd->setProperty("listControlId", listControlId);
+    toolButtonPropertyListAdd->setProperty("type", type);
+    toolButtonPropertyListAdd->setProperty("group", static_cast<int>(group));
+    toolButtonPropertyListAdd->setProperty("name", name);
     toolButtonPropertyListAdd->setProperty("action", "add");
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListAdd);
     connect(toolButtonPropertyListAdd, &QToolButton::clicked, this, &MainWindow::on_toolButton_clicked);
+    //connect(toolButtonPropertyListAdd, &QToolButton::clicked, this, std::bind(&MainWindow::on_toolButton_name_clicked, this, QString("Knopka")));
 
     QToolButton* toolButtonPropertyListRemove = new QToolButton;
     toolButtonPropertyListRemove->setFixedSize(buttonSize, buttonSize);
     toolButtonPropertyListRemove->setIconSize(QSize(buttonSize, buttonSize));
     toolButtonPropertyListRemove->setIcon(QIcon(":/images/minus.png"));
-    toolButtonPropertyListRemove->setProperty("tabId", tabId);
-    toolButtonPropertyListRemove->setProperty("listControlId", listControlId);
+    toolButtonPropertyListRemove->setProperty("type", type);
+    toolButtonPropertyListRemove->setProperty("group", static_cast<int>(group));
+    toolButtonPropertyListRemove->setProperty("name", name);
     toolButtonPropertyListRemove->setProperty("action", "remove");
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListRemove);
     connect(toolButtonPropertyListRemove, &QToolButton::clicked, this, &MainWindow::on_toolButton_clicked);
@@ -1261,8 +1283,9 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString tabId, QStr
     toolButtonPropertyListUp->setFixedSize(buttonSize, buttonSize);
     toolButtonPropertyListUp->setIconSize(QSize(buttonSize, buttonSize));
     toolButtonPropertyListUp->setIcon(QIcon(":/images/up.png"));
-    toolButtonPropertyListUp->setProperty("tabId", tabId);
-    toolButtonPropertyListUp->setProperty("listControlId", listControlId);
+    toolButtonPropertyListUp->setProperty("type", type);
+    toolButtonPropertyListUp->setProperty("group", static_cast<int>(group));
+    toolButtonPropertyListUp->setProperty("name", name);
     toolButtonPropertyListUp->setProperty("action", "up");
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListUp);
     connect(toolButtonPropertyListUp, &QToolButton::clicked, this, &MainWindow::on_toolButton_clicked);
@@ -1271,8 +1294,9 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString tabId, QStr
     toolButtonPropertyListDown->setFixedSize(buttonSize, buttonSize);
     toolButtonPropertyListDown->setIconSize(QSize(buttonSize, buttonSize));
     toolButtonPropertyListDown->setIcon(QIcon(":/images/down.png"));
-    toolButtonPropertyListDown->setProperty("tabId", tabId);
-    toolButtonPropertyListDown->setProperty("listControlId", listControlId);
+    toolButtonPropertyListDown->setProperty("type", type);
+    toolButtonPropertyListDown->setProperty("group", static_cast<int>(group));
+    toolButtonPropertyListDown->setProperty("name", name);
     toolButtonPropertyListDown->setProperty("action", "down");
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListDown);
     connect(toolButtonPropertyListDown, &QToolButton::clicked, this, &MainWindow::on_toolButton_clicked);
@@ -1294,6 +1318,10 @@ QWidget* MainWindow::CreateTypeTabWidget(QString type)
     QWidget* widgetSplitterPropertyList = CreatePropertyListWidget(type);
     QWidget* widgetSplitterProperties = CreatePropertiesWidget(type);
 
+    AddGroupWidget(widgetSplitterInfo, "INFO_GROUP", type, ControlsGroup::Info);
+    AddGroupWidget(widgetSplitterPropertyList, "PROPERTY_LIST_GROUP", type, ControlsGroup::PropertyList);
+    AddGroupWidget(widgetSplitterProperties, "PROPERTIES_GROUP", type, ControlsGroup::Properties);
+
     QSplitter* tabHSplitter = new QSplitter(Qt::Horizontal);
     tabHSplitter->addWidget(widgetSplitterInfo);
     tabHSplitter->addWidget(widgetSplitterPropertyList);
@@ -1301,6 +1329,7 @@ QWidget* MainWindow::CreateTypeTabWidget(QString type)
     tabHSplitter->setStretchFactor(0, 1);
     tabHSplitter->setStretchFactor(1, 0);
     tabHSplitter->setStretchFactor(2, 1);
+    widgetSplitterProperties->setEnabled(false);
 
     QVBoxLayout* vBoxLayoutSplitter = new QVBoxLayout;
     vBoxLayoutSplitter->addWidget(tabHSplitter);
@@ -1313,18 +1342,13 @@ QWidget* MainWindow::CreateTypeTabInfoWidget(QString type)
 {
     QGridLayout* gridLayoutInfo = new QGridLayout;
 
-    TabControls& tc = GetTabControls(type);
-
     int index = 0;
     AddPropertySubheader(gridLayoutInfo, "TYPES", "font-weight: bold; font-size: 14px", index++);
-    AddLineEditRequiredProperty(gridLayoutInfo, "NAME", index++, type, MainWindow::ControlsGroup::Info);
-    AddLineEditProperty(gridLayoutInfo, "TYPE", index++, tc.Info);
-    AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++, tc.Info);
-    AddListProperty(gridLayoutInfo, "VALUES", index++, type, "Values", tc.Info, type);
-    AddListProperty(gridLayoutInfo, "INCLUDES", index++, type, "Includes", tc.Info, type);
-
-    //AddLineEditProperty(gridLayoutInfo, "VALUES", index++, tc.Info);
-    //AddLineEditProperty(gridLayoutInfo, "INCLUDES", index++, tc.Info);
+    AddLineEditRequiredProperty(gridLayoutInfo, "NAME", index++, type, ControlsGroup::Info);
+    AddLineEditProperty(gridLayoutInfo, "TYPE", index++, type, ControlsGroup::Info);
+    AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++, type, ControlsGroup::Info);
+    AddListProperty(gridLayoutInfo, "VALUES", index++, type, ControlsGroup::Info);
+    AddListProperty(gridLayoutInfo, "INCLUDES", index++, type, ControlsGroup::Info);
 
     QWidget* widgetSplitterInfo = new QWidget;
     widgetSplitterInfo->setLayout(gridLayoutInfo);
@@ -1335,12 +1359,212 @@ QWidget* MainWindow::CreateTypeTabInfoWidget(QString type)
 
 void MainWindow::on_toolButton_clicked()
 {
-    QToolButton* tb = dynamic_cast<QToolButton*>(sender());
-    if (tb)
+    QToolButton* tb = qobject_cast<QToolButton*>(sender());
+    QString type = tb->property("type").toString();
+    ControlsGroup group = static_cast<ControlsGroup>(tb->property("group").toInt());
+    QString name = tb->property("name").toString();
+    QString action = tb->property("action").toString();
+
+    if (group == ControlsGroup::PropertyList && name == "PROPERTIES" && action == "add")
     {
-        qDebug() << tb->property("tabId").toString();
-        qDebug() << tb->property("listControlId").toString();
-        qDebug() << tb->property("action").toString();
+        bool ok;
+        QString text = QInputDialog::getText(this, "Add property", "Property name:", QLineEdit::Normal, "", &ok);
+        if (ok && !text.isEmpty())
+        {
+            QListWidgetItem* newItem = new QListWidgetItem;
+            newItem->setText(text);
+
+            // Validate
+            if (type == "Main")
+            {
+                for (auto& p : fileInfo_.parameters)
+                {
+                    if (QString::fromStdString(p.yml.name) == text)
+                    {
+                        QMessageBox::critical(this, "Error", "Parameter with this NAME already exists: " + text);
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                for (auto& t : fileInfo_.types)
+                {
+                    if (QString::fromStdString(t.yml.name) == type)
+                    {
+                        for (auto& p : t.parameters)
+                        {
+                            if (QString::fromStdString(p.yml.name) == text)
+                            {
+                                QMessageBox::critical(this, "Error", "Parameter with this NAME already exists: " + text);
+                                return;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Add to control
+            auto& tc = GetControls(type, group);
+            QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PROPERTIES"]);
+            listWidget->addItem(newItem);
+
+            // Add to fileInfo_
+            if (type == "Main")
+            {
+                yaml::parameter_info pi{};
+                pi.yml.name = text.toStdString();
+                pi.yml.type = "string";
+                fileInfo_.parameters.push_back(pi);
+            }
+            else
+            {
+                for (auto& t : fileInfo_.types)
+                {
+                    if (QString::fromStdString(t.yml.name) == type)
+                    {
+                        yaml::parameter_info pi{};
+                        pi.yml.name = text.toStdString();
+                        pi.yml.type = "string";
+                        t.parameters.push_back(pi);
+                        break;
+                    }
+                }
+            }
+
+            // Update
+            listWidget->setCurrentRow(listWidget->count() - 1);
+        }
+    }
+    else if (group == ControlsGroup::PropertyList && name == "PROPERTIES" && action == "remove")
+    {
+        auto& tc = GetControls(type, group);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PROPERTIES"]);
+        if (listWidget->currentItem() == nullptr)
+            return;
+
+        QString propertyName = listWidget->currentItem()->text();
+
+        QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+            QString("Are you sure want to remove property: %1?").arg(propertyName), QMessageBox::No | QMessageBox::Yes);
+        if (resBtn != QMessageBox::Yes)
+            return;
+
+        // Remove from control
+        listWidget->removeItemWidget(listWidget->currentItem());
+        delete listWidget->currentItem();
+
+        // Remove from fileInfo_
+        if (type == "Main")
+        {
+            auto it = std::find_if(fileInfo_.parameters.cbegin(), fileInfo_.parameters.cend(), [propertyName](auto& p) { if (p.yml.name == propertyName.toStdString()) return true; else return false; });
+            fileInfo_.parameters.erase(it);
+        }
+        else
+        {
+            for (auto& t : fileInfo_.types)
+            {
+                if (QString::fromStdString(t.yml.name) == type)
+                {
+                    auto it = std::find_if(t.parameters.cbegin(), t.parameters.cend(), [propertyName](auto& p) { if (p.yml.name == propertyName.toStdString()) return true; else return false; });
+                    t.parameters.erase(it);
+                    break;
+                }
+            }
+        }
+    }
+    else if (group == ControlsGroup::Properties && name == "SET" && action == "add")
+    {
+        auto& tc = GetControls(type, ControlsGroup::PropertyList);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PROPERTIES"]);
+        if (listWidget->currentItem() == nullptr)
+            return;
+
+        QString propertyName = listWidget->currentItem()->text();
+
+        bool ok;
+        QString text = QInputDialog::getText(this, "Add restriction SET", "Value:", QLineEdit::Normal, "", &ok);
+        if (ok && !text.isEmpty())
+        {
+            QListWidgetItem* newItem = new QListWidgetItem;
+            newItem->setText(text);
+
+            // Validate
+            if (type == "Main")
+            {
+                for (auto& p : fileInfo_.parameters)
+                {
+                    if (QString::fromStdString(p.yml.name) == propertyName)
+                    {
+                        auto it = std::find_if(p.yml.restrictions.set_.cbegin(), p.yml.restrictions.set_.cend(), [text](auto& p) { if (p == text.toStdString()) return true; else return false; });
+                        if (it != p.yml.restrictions.set_.cend())
+                        {
+                            QMessageBox::critical(this, "Error", "Restriction with this value already exists: " + text);
+                            return;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (auto& t : fileInfo_.types)
+                {
+                    if (QString::fromStdString(t.yml.name) == type)
+                    {
+                        for (auto& p : t.parameters)
+                        {
+                            if (QString::fromStdString(p.yml.name) == propertyName)
+                            {
+                                auto it = std::find_if(p.yml.restrictions.set_.cbegin(), p.yml.restrictions.set_.cend(), [text](auto& p) { if (p == text.toStdString()) return true; else return false; });
+                                if (it != p.yml.restrictions.set_.cend())
+                                {
+                                    QMessageBox::critical(this, "Error", "Restriction with this value already exists: " + text);
+                                    return;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Add to control
+            auto& tc = GetControls(type, group);
+            QListWidget* listWidget = qobject_cast<QListWidget*>(tc[name]);
+            listWidget->addItem(newItem);
+
+            // Add to fileInfo_
+            if (type == "Main")
+            {
+                for (auto& p : fileInfo_.parameters)
+                {
+                    if (QString::fromStdString(p.yml.name) == propertyName)
+                    {
+                        p.yml.restrictions.set_.push_back(text.toStdString());
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                for (auto& t : fileInfo_.types)
+                {
+                    if (QString::fromStdString(t.yml.name) == type)
+                    {
+                        for (auto& p : t.parameters)
+                        {
+                            if (QString::fromStdString(p.yml.name) == propertyName)
+                            {
+                                p.yml.restrictions.set_.push_back(text.toStdString());
+                                break;
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1358,10 +1582,7 @@ void MainWindow::on_toolButtonAddProperty_clicked()
 
 void MainWindow::on_listWidgetProperties_currentItemChanged(QListWidgetItem *current, QListWidgetItem *previous)
 {
-    QListWidget* list = dynamic_cast<QListWidget*>(sender());
-    if (!list)
-        return;
-
+    QListWidget* list = qobject_cast<QListWidget*>(sender());
     QString type = list->property("type").toString();
 
     std::vector<yaml::parameter_info>* pis = &fileInfo_.parameters;
@@ -1402,35 +1623,44 @@ void MainWindow::on_listWidgetProperties_currentItemChanged(QListWidgetItem *cur
 
     TabControls& tc = GetTabControls(type);
 
-    dynamic_cast<QLineEdit*>(tc.Properties["NAME"])->setText(QString::fromStdString(pic.yml.name));
-    dynamic_cast<QLineEdit*>(tc.Properties["TYPE"])->setText(QString::fromStdString(pic.yml.type));
-    dynamic_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->setText(QString::fromStdString(pic.yml.display_name));
-    dynamic_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->setPlainText(QString::fromStdString(pic.yml.description));
-    dynamic_cast<QCheckBox*>(tc.Properties["REQUIRED"])->setChecked(pic.yml.required);
-    dynamic_cast<QLineEdit*>(tc.Properties["DEFAULT"])->setText(QString::fromStdString(pic.yml.default_));
-    dynamic_cast<QLineEdit*>(tc.Properties["HINT"])->setText(QString::fromStdString(pic.yml.hint));
+    qobject_cast<QLineEdit*>(tc.Properties["NAME"])->setText(QString::fromStdString(pic.yml.name));
+    qobject_cast<QLineEdit*>(tc.Properties["TYPE"])->setText(QString::fromStdString(pic.yml.type));
+    qobject_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->setText(QString::fromStdString(pic.yml.display_name));
+    qobject_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->setPlainText(QString::fromStdString(pic.yml.description));
+    qobject_cast<QCheckBox*>(tc.Properties["REQUIRED"])->setChecked(pic.yml.required);
+    qobject_cast<QLineEdit*>(tc.Properties["DEFAULT"])->setText(QString::fromStdString(pic.yml.default_));
+    qobject_cast<QLineEdit*>(tc.Properties["HINT"])->setText(QString::fromStdString(pic.yml.hint));
 
-    dynamic_cast<QLineEdit*>(tc.Properties["MIN"])->setText(QString::fromStdString(pic.yml.restrictions.min));
-    dynamic_cast<QLineEdit*>(tc.Properties["MAX"])->setText(QString::fromStdString(pic.yml.restrictions.max));
-    QListWidget* listWidgetSet = dynamic_cast<QListWidget*>(tc.Properties["SET"]);
+    qobject_cast<QLineEdit*>(tc.Properties["MIN"])->setText(QString::fromStdString(pic.yml.restrictions.min));
+    qobject_cast<QLineEdit*>(tc.Properties["MAX"])->setText(QString::fromStdString(pic.yml.restrictions.max));
+    QListWidget* listWidgetSet = qobject_cast<QListWidget*>(tc.Properties["SET"]);
     listWidgetSet->clear();
     for (const auto& s : pic.yml.restrictions.set_)
         listWidgetSet->addItem(QString::fromStdString(s));
 
-    dynamic_cast<QLineEdit*>(tc.Properties["MIN_COUNT"])->setText(QString::fromStdString(pic.yml.restrictions.min_count));
-    dynamic_cast<QLineEdit*>(tc.Properties["MAX_COUNT"])->setText(QString::fromStdString(pic.yml.restrictions.max_count));
-    QListWidget* listWidgetSetCount = dynamic_cast<QListWidget*>(tc.Properties["SET_COUNT"]);
+    qobject_cast<QLineEdit*>(tc.Properties["MIN_COUNT"])->setText(QString::fromStdString(pic.yml.restrictions.min_count));
+    qobject_cast<QLineEdit*>(tc.Properties["MAX_COUNT"])->setText(QString::fromStdString(pic.yml.restrictions.max_count));
+    QListWidget* listWidgetSetCount = qobject_cast<QListWidget*>(tc.Properties["SET_COUNT"]);
     listWidgetSetCount->clear();
     for (const auto& s : pic.yml.restrictions.set_count)
         listWidgetSetCount->addItem(QString::fromStdString(s));
 
-    dynamic_cast<QLineEdit*>(tc.Properties["CATEGORY"])->setText(QString::fromStdString(pic.yml.restrictions.category));
-    QListWidget* listWidgetIds = dynamic_cast<QListWidget*>(tc.Properties["IDS"]);
+    qobject_cast<QLineEdit*>(tc.Properties["CATEGORY"])->setText(QString::fromStdString(pic.yml.restrictions.category));
+    QListWidget* listWidgetIds = qobject_cast<QListWidget*>(tc.Properties["IDS"]);
     listWidgetIds->clear();
     for (const auto& s : pic.yml.restrictions.ids)
         listWidgetIds->addItem(QString::fromStdString(s));
 
-    dynamic_cast<QLineEdit*>(tc.Properties["MAX_LENGTH"])->setText(QString::fromStdString(pic.yml.restrictions.max_length));
+    qobject_cast<QLineEdit*>(tc.Properties["MAX_LENGTH"])->setText(QString::fromStdString(pic.yml.restrictions.max_length));
+
+    if (current == nullptr)
+    {
+        qobject_cast<QWidget*>(tc.Properties["PROPERTIES_GROUP"])->setEnabled(false);
+    }
+    else
+    {
+        qobject_cast<QWidget*>(tc.Properties["PROPERTIES_GROUP"])->setEnabled(true);
+    }
 }
 
 
@@ -1443,9 +1673,10 @@ void MainWindow::on_toolButtonRemoveProperty_clicked()
 //    }
 }
 
+//void MainWindow::OnEditingFinished(QString type, ControlsGroup group, QString name)
 void MainWindow::on_editingFinished()
 {
-    QLineEdit* lineEdit = dynamic_cast<QLineEdit*>(sender());
+    QLineEdit* lineEdit = qobject_cast<QLineEdit*>(sender());
     if (!lineEdit->isModified()) return; //!!!
     lineEdit->setModified(false);
     qDebug() << lineEdit->text();
@@ -1453,8 +1684,6 @@ void MainWindow::on_editingFinished()
     QString name = lineEdit->property("name").toString();
     MainWindow::ControlsGroup group = static_cast<MainWindow::ControlsGroup>(lineEdit->property("group").toInt());
     QString type = lineEdit->property("type").toString();
-    if (name == "" || type == "")
-        return;
 
     TabControls& tc = GetTabControls(type);
 
@@ -1465,7 +1694,7 @@ void MainWindow::on_editingFinished()
     else if (group == MainWindow::ControlsGroup::Info && name == "NAME")
     {
         // Type NAME
-        QTabWidget* tabWidget = dynamic_cast<QTabWidget*>(centralWidget());
+        QTabWidget* tabWidget = qobject_cast<QTabWidget*>(centralWidget());
 
         QString oldName = type;
         QString newName = lineEdit->text();
@@ -1495,7 +1724,7 @@ void MainWindow::on_editingFinished()
 
 
         TabControls& tc_m = GetTabControls("Main");
-        QLineEdit* t_m = dynamic_cast<QLineEdit*>(tc_m.Properties["TYPE"]);
+        QLineEdit* t_m = qobject_cast<QLineEdit*>(tc_m.Properties["TYPE"]);
         if (t_m->text() == oldName)
         {
             t_m->setText(newName);
@@ -1508,7 +1737,7 @@ void MainWindow::on_editingFinished()
         for (auto& t : fileInfo_.types)
         {
             TabControls& tc_t = GetTabControls(QString::fromStdString(t.yml.name));
-            QLineEdit* t_t = dynamic_cast<QLineEdit*>(tc_m.Properties["TYPE"]);
+            QLineEdit* t_t = qobject_cast<QLineEdit*>(tc_m.Properties["TYPE"]);
             if (t_t->text() == oldName)
             {
                 t_t->setText(newName);
@@ -1565,7 +1794,7 @@ void MainWindow::on_editingFinished()
     else if (group == MainWindow::ControlsGroup::Properties && name == "NAME")
     {
         // Property NAME
-        QListWidget* listWidget = dynamic_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
         if (listWidget->selectedItems().size() == 0) return; // !!!
 
         QString oldName = listWidget->selectedItems()[0]->text();
