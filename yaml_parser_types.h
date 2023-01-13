@@ -14,8 +14,8 @@ namespace yaml
 
 	const std::map<std::string, std::string> system_type_names_ = {
 		{"unit", "str"},
-		{ "path", "str"},
-		{ "string", "str"}
+		{"path", "str"},
+		{"string", "str"}
 	};
 
 	const std::map<std::string, std::string> cpp_type_names_ = {
@@ -41,25 +41,6 @@ namespace yaml
 		{"str", "std::string"}
 	};
 	
-	
-	// remove to file yaml_helper!!!!
-	class helper
-	{
-	public:
-		static bool is_inner_type(std::string name)
-		{
-			if (system_type_names_.find(name) != system_type_names_.end())
-				return true;
-			if (cpp_type_names_.find(name) != cpp_type_names_.end())
-				return true;
-
-			return false;
-		}
-
-
-	};
-
-
 	struct restrictions_info
 	{
 		// Optional members from yml
@@ -123,18 +104,5 @@ namespace yaml
 		info_info info;
 		std::vector<type_info> types;
 		std::vector<parameter_info> parameters;
-
-		inline bool get_type(const std::string& name, type_info& type) const
-		{
-			for (const auto& ti : types)
-			{
-				if (ti.name == name)
-				{
-					type = ti;
-					return true;
-				}
-			}
-			return false;
-		}
 	};
 }

@@ -26,18 +26,8 @@ bool parser::parse(const std::string& filename, file_info& fi)
 
 	if (!get_file_info(config, fi))
 		ELRF("File info parse failed");
-	return true;
-}
 
-template <typename... Args>
-std::string parser::make_string(Args&&... args)
-{
-	std::stringstream out;
-	using expander = int[];
-	(void)expander {
-		0, (void(out << std::forward<Args>(args)), 0)...
-	};
-	return out.str();
+	return true;
 }
 
 template<typename T>
@@ -122,29 +112,22 @@ bool parser::get_type_info(const YAML::Node& node, const std::vector<type_info>&
 		ti.description = ti.name;
 	ti.description = std::regex_replace(ti.description, std::regex("\r\n$|\n$"), "");
 
-	if (ti.type == "yml")
+	YAML::Node parameters = node["PARAMETERS"];
+	for (const auto& parameter : parameters)
 	{
-		YAML::Node parameters = node["PARAMETERS"];
-		for (const auto& parameter : parameters)
-		{
-			parameter_info pi;
-			if (!get_parameter_info(parameter, type_infos, pi))
-				ELRF("Get parameter info failed");
-			ti.parameters.push_back(std::move(pi));
-		}
+		parameter_info pi;
+		if (!get_parameter_info(parameter, type_infos, pi))
+			ELRF("Get parameter info failed");
+		ti.parameters.push_back(std::move(pi));
 	}
-	else if (ti.type == "enum")
-	{
-		YAML::Node values = node["VALUES"];
-		for (const auto& value : values)
-			ti.values.push_back({ value.first.as<std::string>(), value.second.as<std::string>() });
+	YAML::Node values = node["VALUES"];
+	for (const auto& value : values)
+		ti.values.push_back({ value.first.as<std::string>(), value.second.as<std::string>() });
 
-		YAML::Node includes = node["INCLUDES"];
-		for (const auto& include : includes)
-			ti.includes.push_back(include.as<std::string>());
-	}
-	else
-		ELRF("Unknown type of type");
+	YAML::Node includes = node["INCLUDES"];
+	for (const auto& include : includes)
+		ti.includes.push_back(include.as<std::string>());
+
 	return true;
 }
 

@@ -17,6 +17,8 @@
 #include <QCloseEvent>
 
 #include "yaml_parser.h"
+#include "yaml_writer.h"
+#include "yaml_helper.h"
 #include "mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -259,13 +261,16 @@ void MainWindow::on_SaveFile_action()
         if (!RearrangeTypes())
             return;
 
-        YAML::Emitter emitter;
-        if (!WriteCurrent(emitter))
+        if (!yaml::writer::write(fileNames[0].toStdString(), fileInfo_))
             return;
+        
+        //YAML::Emitter emitter;
+        //if (!WriteCurrent(emitter))
+        //    return;
 
-        QFile file(fileNames[0]);
-        if (file.open(QIODevice::WriteOnly))
-            file.write(emitter.c_str());
+        //QFile file(fileNames[0]);
+        //if (file.open(QIODevice::WriteOnly))
+        //    file.write(emitter.c_str());
 
         currentFileName_ = fileNames[0];
         setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
@@ -296,13 +301,16 @@ void MainWindow::on_SaveAsFile_action()
         if (!RearrangeTypes())
             return;
 
-        YAML::Emitter emitter;
-        if (!WriteCurrent(emitter))
+        if (!yaml::writer::write(fileNames[0].toStdString(), fileInfo_))
             return;
+        
+        //YAML::Emitter emitter;
+        //if (!WriteCurrent(emitter))
+        //    return;
 
-        QFile file(fileNames[0]);
-        if (file.open(QIODevice::WriteOnly))
-            file.write(emitter.c_str());
+        //QFile file(fileNames[0]);
+        //if (file.open(QIODevice::WriteOnly))
+        //    file.write(emitter.c_str());
 
         currentFileName_ = fileNames[0];
         setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
@@ -828,110 +836,6 @@ bool MainWindow::Validate()
     return true;
 }
 
-bool MainWindow::Contains(QList<ll*>& list, QString value)
-{
-    for (const auto v : list)
-    {
-        if (v->Name == value)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-void MainWindow::FlatList(ll* type)
-{
-    for (auto llt : type->List)
-    {
-        FlatList(llt);
-        for (int i = 0; i < llt->FlatList.size(); i++)
-        {
-            if (type->FlatList.size() <= i)
-            {
-                type->FlatList.push_back(llt->FlatList[i]);
-            }
-            else
-            {
-                //for (int j = 0; j < llt->FlatList[i]->List.size(); j++)
-                //{
-                //    if (!Contains(type->FlatList[i]->List, llt->FlatList[i]->List[j]->Name))
-                //        type->FlatList[i]->List.push_back(llt->FlatList[i]->List[j]);
-                //}
-                for (const auto v : llt->FlatList[i]->List)
-                {
-                    if (!Contains(type->FlatList[i]->List, v->Name))
-                        type->FlatList[i]->List.push_back(v);
-                }
-            }
-        }
-    }
-    type->FlatList.insert(0, new ll(type->Name));
-    type->FlatList[0]->List.push_back(new ll(type->Name));
-}
-
-void MainWindow::AddTypes(ll* type, int level)
-{
-    for (const auto& ti : fileInfo_.types)
-    {
-        if (QString::fromStdString(ti.name) == type->Name)
-        {
-            for (const auto& pi : ti.parameters)
-            {
-                QString ts = QString::fromStdString(pi.type);
-                if (ts.startsWith("array") && ts.length() > 7)
-                    ts = ts.mid(6, ts.length() - 7);
-
-
-                // Validate, search loops
-                if (ts == type->Name)
-                {
-                    QMessageBox::warning(this, "Warning", "Type loop found");
-                    continue;
-                }
-
-                MainWindow::ll* parent = type->Parent;
-                while (parent != nullptr)
-                {
-                    if (parent->Name == type->Name)
-                    {
-                        QMessageBox::warning(this, "Warning", "Type loop found");
-                        continue;
-                    }
-                    parent = parent->Parent;
-                }
-
-
-                ll* llt = new ll(ts, type);
-                if (!yaml::helper::is_inner_type(ts.toStdString()) && !Contains(type->List, ts))
-                {
-                    if (level < 10)
-                        AddTypes(llt, ++level);
-                    type->List.push_back(llt);
-
-                    //for (size_t i = 0; i < llt.FlatList.size(); i++)
-                    //{
-                    //    if (type.FlatList.size() <= i)
-                    //    {
-                    //        type.FlatList.push_back(llt.FlatList[i]);
-                    //    }
-                    //    else
-                    //    {
-                    //        for (const auto& v : llt.FlatList[i].List)
-                    //        {
-                    //            if (!type.FlatList[i].List.contains(v))
-                    //                type.FlatList[i].List.push_back(v);
-                    //        }
-                    //    }
-                    //}
-                    //type.FlatList.insert(0, ll(ts));
-                }
-            }
-            break;
-        }
-    }
-}
-
 bool MainWindow::RearrangeTypes()
 {
     QList<QString> sorted_names;
@@ -991,218 +895,6 @@ bool MainWindow::RearrangeTypes()
     }
 
     fileInfo_.types = std::move(sorted_types);
-
-    return true;
-}
-
-bool MainWindow::WriteCurrent(YAML::Emitter& emitter)
-{
-    emitter << YAML::BeginMap;
-    WriteInfo(emitter, fileInfo_.info);
-
-    if (fileInfo_.types.size() > 0)
-    {
-        emitter << YAML::Key << "TYPES";
-        emitter << YAML::Value << YAML::BeginSeq;
-        for (const auto& ti : fileInfo_.types)
-            WriteType(emitter, ti);
-        emitter << YAML::EndSeq;
-    }
-
-    if (fileInfo_.parameters.size() > 0)
-    {
-        emitter << YAML::Key << "PARAMETERS";
-        emitter << YAML::Value << YAML::BeginSeq;
-        for (const auto& pi : fileInfo_.parameters)
-            WriteParameter(emitter, pi);
-        emitter << YAML::EndSeq;
-    }
-
-    emitter << YAML::EndMap;
-
-    return true;
-}
-
-bool MainWindow::WriteInfo(YAML::Emitter& emitter, yaml::info_info ii)
-{
-    emitter << YAML::Key << "INFO";
-    emitter << YAML::Value << YAML::BeginMap;
-
-    emitter << YAML::Key << "ID";
-    emitter << YAML::Value << ii.id;
-    if (ii.display_name != "")
-    {
-        emitter << YAML::Key << "DISPLAY_NAME";
-        emitter << YAML::Value << ii.display_name;
-    }
-    if (ii.category != "")
-    {
-        emitter << YAML::Key << "CATEGORY";
-        emitter << YAML::Value << ii.category;
-    }
-    if (ii.description != "")
-    {
-        emitter << YAML::Key << "DESCRIPTION";
-        emitter << YAML::Value << YAML::Literal << ii.description;
-    }
-    if (ii.pictogram != "")
-    {
-        emitter << YAML::Key << "PICTOGRAM";
-        emitter << YAML::Value << ii.pictogram;
-    }
-    if (ii.hint != "")
-    {
-        emitter << YAML::Key << "HINT";
-        emitter << YAML::Value << ii.hint;
-    }
-    if (ii.author != "")
-    {
-        emitter << YAML::Key << "AUTHOR";
-        emitter << YAML::Value << ii.author;
-    }
-    if (ii.wiki != "")
-    {
-        emitter << YAML::Key << "WIKI";
-        emitter << YAML::Value << ii.wiki;
-    }
-
-    emitter << YAML::EndMap;
-
-    return true;
-}
-
-bool MainWindow::WriteType(YAML::Emitter& emitter, yaml::type_info ti)
-{
-    emitter << YAML::BeginMap;
-    emitter << YAML::Key << "NAME";
-    emitter << YAML::Value << ti.name;
-    if (ti.type != "" && ti.type != "yml")
-    {
-        emitter << YAML::Key << "TYPE";
-        emitter << YAML::Value << ti.type;
-    }
-    if (fileInfo_.info.description != "")
-    {
-        emitter << YAML::Key << "DESCRIPTION";
-        emitter << YAML::Value << YAML::Literal << ti.description;
-    }
-    if (ti.values.size() > 0)
-    {
-        emitter << YAML::Key << "VALUES";
-        emitter << YAML::Value << YAML::BeginMap;
-        for (const auto& v : ti.values)
-        {
-            emitter << YAML::Key << v.first;
-            emitter << YAML::Value << v.second;
-        }
-        emitter << YAML::EndMap;
-    }
-    if (ti.includes.size() > 0)
-    {
-        emitter << YAML::Key << "INCLUDES";
-        emitter << YAML::Value << ti.includes;
-    }
-    if (ti.parameters.size() > 0)
-    {
-        emitter << YAML::Key << "PARAMETERS";
-        emitter << YAML::Value << YAML::BeginSeq;
-        for (const auto& pi : ti.parameters)
-            WriteParameter(emitter, pi);
-        emitter << YAML::EndSeq;
-    }
-    emitter << YAML::EndMap;
-
-    return true;
-}
-
-bool MainWindow::WriteParameter(YAML::Emitter& emitter, yaml::parameter_info pi)
-{
-    emitter << YAML::BeginMap;
-    emitter << YAML::Key << "NAME";
-    emitter << YAML::Value << pi.name;
-    emitter << YAML::Key << "TYPE";
-    emitter << YAML::Value << pi.type;
-    if (pi.display_name != "")
-    {
-        emitter << YAML::Key << "DISPLAY_NAME";
-        emitter << YAML::Value << pi.display_name;
-    }
-    if (pi.description != "")
-    {
-        emitter << YAML::Key << "DESCRIPTION";
-        emitter << YAML::Value << YAML::Literal << pi.description;
-    }
-    if (pi.required != true)
-    {
-        emitter << YAML::Key << "REQUIRED";
-        emitter << YAML::Value << YAML::TrueFalseBool << pi.required;
-    }
-    if (pi.default_ != "")
-    {
-        emitter << YAML::Key << "DEFAULT";
-        emitter << YAML::Value << pi.default_;
-    }
-    if (pi.hint != "")
-    {
-        emitter << YAML::Key << "HINT";
-        emitter << YAML::Value << pi.hint;
-    }
-
-    if (pi.restrictions.min != "" || pi.restrictions.max != "" || pi.restrictions.set_.size() > 0 ||
-        pi.restrictions.min_count != "" || pi.restrictions.max_count != "" || pi.restrictions.set_count.size() > 0 ||
-        pi.restrictions.category != "" || pi.restrictions.ids.size() > 0 || pi.restrictions.max_length != "")
-    {
-        emitter << YAML::Key << "RESTRICTIONS";
-        emitter << YAML::Value << YAML::BeginMap;
-        if (pi.restrictions.min != "")
-        {
-            emitter << YAML::Key << "MIN";
-            emitter << YAML::Value << pi.restrictions.min;
-        }
-        if (pi.restrictions.max != "")
-        {
-            emitter << YAML::Key << "MAX";
-            emitter << YAML::Value << pi.restrictions.max;
-        }
-        if (pi.restrictions.set_.size() > 0)
-        {
-            emitter << YAML::Key << "SET";
-            emitter << YAML::Value << YAML::Flow << pi.restrictions.set_;
-        }
-        if (pi.restrictions.min_count != "")
-        {
-            emitter << YAML::Key << "MIN_COUNT";
-            emitter << YAML::Value << pi.restrictions.min_count;
-        }
-        if (pi.restrictions.max_count != "")
-        {
-            emitter << YAML::Key << "MAX_COUNT";
-            emitter << YAML::Value << pi.restrictions.max_count;
-        }
-        if (pi.restrictions.set_count.size() > 0)
-        {
-            emitter << YAML::Key << "SET_COUNT";
-            emitter << YAML::Value << YAML::Flow << pi.restrictions.set_count;
-        }
-        if (pi.restrictions.category != "")
-        {
-            emitter << YAML::Key << "CATEGORY";
-            emitter << YAML::Value << pi.restrictions.category;
-        }
-        if (pi.restrictions.ids.size() > 0)
-        {
-            emitter << YAML::Key << "IDS";
-            emitter << YAML::Value << YAML::Flow << pi.restrictions.ids;
-        }
-        if (pi.restrictions.max_length != "")
-        {
-            emitter << YAML::Key << "MAX_LENGTH";
-            emitter << YAML::Value << pi.restrictions.max_length;
-        }
-        emitter << YAML::EndMap;
-    }
-
-    emitter << YAML::EndMap;
 
     return true;
 }

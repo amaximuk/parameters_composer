@@ -5,7 +5,7 @@
 #include <QListWidgetItem>
 #include <QGridLayout>
 
-#include "yaml_parser.h"
+#include "yaml_parser_types.h"
 
 class MainWindow : public QMainWindow
 {
@@ -25,29 +25,6 @@ private:
         QMap<QString, QObject*> Info;
         QMap<QString, QObject*> PropertyList;
         QMap<QString, QObject*> Properties;
-    };
-
-    struct ll
-    {
-        QString Name;
-        QList<ll*> List;
-        QList<ll*> FlatList;
-        ll* Parent;
-
-        ll(QString name) :
-            Name(name),
-            Parent(nullptr)
-        {}
-
-        ll(QString name, ll* parent) :
-            Name(name),
-            Parent(parent)
-        {}
-
-        bool operator==(const ll other) const
-        {
-            return this->Name == other.Name;
-        }
     };
 
 private:
@@ -106,15 +83,7 @@ private:
     bool SaveCurrent();
     bool Validate();
 
-    bool Contains(QList<ll*>& list, QString value);
-    void FlatList(ll* type);
-    void AddTypes(ll* type, int level);
     bool RearrangeTypes();
-
-    bool WriteCurrent(YAML::Emitter& emitter);
-    bool WriteInfo(YAML::Emitter& emitter, yaml::info_info ii);
-    bool WriteType(YAML::Emitter& emitter, yaml::type_info ti);
-    bool WriteParameter(YAML::Emitter& emitter, yaml::parameter_info pi);
 
 private slots:
     void on_toolButton_clicked();
