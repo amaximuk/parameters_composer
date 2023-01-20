@@ -161,8 +161,19 @@ void MainWindow::on_OpenFile_action()
     if (fileNames.size() > 0)
     {
         qDebug() << fileNames[0];
-        if (yaml::parser::parse(fileNames[0].toStdString(), fileInfo_))
+        yaml::file_info fi{};
+        if (yaml::parser::parse(fileNames[0].toStdString(), fi))
         {
+            while (qobject_cast<QTabWidget*>(centralWidget())->count() > 1)
+                qobject_cast<QTabWidget*>(centralWidget())->removeTab(1);
+
+            {
+                TabControls& tc = GetTabControls("Main");
+                QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+                listWidget->clear();
+            }
+
+            fileInfo_ = fi;
             currentFileName_ = fileNames[0];
             setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
 
@@ -180,15 +191,19 @@ void MainWindow::on_OpenFile_action()
                 qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setCursorPosition(0);
 
                 QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
-                listWidget->clear();
+                //for (int i = 0; i < listWidget->count(); ++i)
+                //{
+                //    listWidget->item(i)->setSelected(false);
+                //}
+                //listWidget->clear();
                 for (const auto& pi : fileInfo_.parameters)
                     listWidget->addItem(QString::fromStdString(pi.name));
                 if (listWidget->count() > 0)
                     listWidget->setCurrentRow(0);
             }
 
-            while (qobject_cast<QTabWidget*>(centralWidget())->count() > 1)
-                qobject_cast<QTabWidget*>(centralWidget())->removeTab(1);
+            //while (qobject_cast<QTabWidget*>(centralWidget())->count() > 1)
+            //    qobject_cast<QTabWidget*>(centralWidget())->removeTab(1);
 
             for (const auto& ti : fileInfo_.types)
             {
@@ -252,7 +267,7 @@ void MainWindow::on_SaveFile_action()
     {
         qDebug() << fileNames[0];
 
-        if (!SaveCurrent())
+        if (!ReadCurrentFileInfo())
             return;
 
         if (!Validate())
@@ -292,7 +307,7 @@ void MainWindow::on_SaveAsFile_action()
     {
         qDebug() << fileNames[0];
 
-        if (!SaveCurrent())
+        if (!ReadCurrentFileInfo())
             return;
 
         if (!Validate())
@@ -624,7 +639,7 @@ void MainWindow::AddGroupWidget(QWidget* groupWidget, QString name, QString type
     tc[name] = groupWidget;
 }
 
-bool MainWindow::ReadCurrentParameters(QString type, yaml::parameter_info& pi)
+bool MainWindow::ReadCurrentParameter(QString type, yaml::parameter_info& pi)
 {
     TabControls& tc = GetTabControls(type);
 
@@ -662,7 +677,7 @@ bool MainWindow::ReadCurrentParameters(QString type, yaml::parameter_info& pi)
     return true;
 }
 
-bool MainWindow::ReadCurrentMainInfo(QString type, yaml::info_info& mi)
+bool MainWindow::ReadCurrentMainInfo(yaml::info_info& mi)
 {
     TabControls& tc = GetTabControls("Main");
 
@@ -703,83 +718,34 @@ bool MainWindow::ReadCurrentTypeInfo(QString type, yaml::type_info& ti)
     return true;
 }
 
-bool MainWindow::SaveCurrentParameters(QString type)
+bool MainWindow::ReadCurrentFileInfo()
 {
-    yaml::parameter_info pi;
-    if (!ReadCurrentParameters(type, pi))
+    yaml::info_info iim{};
+    if (!ReadCurrentMainInfo(iim))
+        return false;
+    fileInfo_.info = iim;
+
+    yaml::parameter_info pim{};
+    if (!ReadCurrentParameter("Main", pim))
         return false;
 
-    if (type == "Main")
-    {
-        for (auto& p : fileInfo_.parameters)
-        {
-            if (p.name == pi.name)
-            {
-                p = pi;
-                break;
-            }
-        }
-    }
-    else
-    {
-        for (auto& t : fileInfo_.types)
-        {
-            if (QString::fromStdString(t.name) == type)
-            {
-                for (auto& p : t.parameters)
-                {
-                    if (p.name == pi.name)
-                    {
-                        p = pi;
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-    }
+    if (!yaml::helper::set_parameter(fileInfo_, "Main", pim))
+        return false;
 
-    return true;
-}
-
-bool MainWindow::SaveCurrentInfo(QString type)
-{
-    if (type == "Main")
+    for (const auto& type : yaml::helper::get_type_names(fileInfo_))
     {
-        yaml::info_info mi;
-        if (!ReadCurrentMainInfo(type, mi))
-            return false;
-        fileInfo_.info = mi;
-    }
-    else
-    {
-        for (auto& t : fileInfo_.types)
-        {
-            if (QString::fromStdString(t.name) == type)
-            {
-                yaml::type_info ti;
-                if (!ReadCurrentTypeInfo(type, ti))
-                    return false;
-
-                yaml::type_info ti_ = t;
-                t = ti;
-                t.parameters = ti_.parameters; // need optimize !!!
-                break;
-            }
-        }
-    }
-
-    return true;
-}
-
-bool MainWindow::SaveCurrent()
-{
-    for (const auto& t : tabs_)
-    {
-        if (!SaveCurrentInfo(t.Name))
+        yaml::type_info tit{};
+        if (!ReadCurrentTypeInfo(QString::fromStdString(type), tit))
             return false;
 
-        if (!SaveCurrentParameters(t.Name))
+        if (!yaml::helper::set_type_info(fileInfo_, tit.name, tit, true))
+            return false;
+
+        yaml::parameter_info pit;
+        if (!ReadCurrentParameter(QString::fromStdString(tit.name), pit))
+            return false;
+
+        if (!yaml::helper::set_parameter(fileInfo_, tit.name, pit))
             return false;
     }
 
@@ -1272,41 +1238,23 @@ void MainWindow::on_listWidgetProperties_currentItemChanged(QListWidgetItem *cur
     QListWidget* list = qobject_cast<QListWidget*>(sender());
     QString type = list->property("type").toString();
 
-    std::vector<yaml::parameter_info>* pis = &fileInfo_.parameters;
-    if (type != "Main")
-    {
-        for (auto& t : fileInfo_.types)
-            if (QString::fromStdString(t.name) == type)
-            {
-                pis = &t.parameters;
-                break;
-            }
-    }
-
     yaml::parameter_info pic{};
     if (current != nullptr)
     {
-        for (const auto& p : *pis)
-            if (QString::fromStdString(p.name) == current->text())
-            {
-                pic = p;
-                break;
-            }
+        yaml::parameter_info* ppic = yaml::helper::get_parameter_info(fileInfo_, type.toStdString(), current->text().toStdString());
+        if (ppic != nullptr) pic = *ppic;
     }
 
     if (previous != nullptr)
     {
         yaml::parameter_info pip{};
-        if (!ReadCurrentParameters(type, pip))
+        if (!ReadCurrentParameter(type, pip))
             return;
 
-        for (auto& p : *pis)
-            if (QString::fromStdString(p.name) == previous->text())
-            {
-                p = pip;
-                break;
-            }
+        if (!yaml::helper::set_parameter(fileInfo_, type.toStdString(), pip))
+            return;
     }
+
 
     TabControls& tc = GetTabControls(type);
 

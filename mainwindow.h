@@ -75,14 +75,12 @@ private:
     void AddLineEditRequiredProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
     void AddGroupWidget(QWidget* groupWidget, QString name, QString type, ControlsGroup group);
 
-    bool ReadCurrentParameters(QString type, yaml::parameter_info& pi);
-    bool SaveCurrentParameters(QString type);
-    bool ReadCurrentMainInfo(QString type, yaml::info_info& mi);
+    bool ReadCurrentFileInfo();
+    bool ReadCurrentMainInfo(yaml::info_info& mi);
     bool ReadCurrentTypeInfo(QString type, yaml::type_info& ti);
-    bool SaveCurrentInfo(QString type);
-    bool SaveCurrent();
+    bool ReadCurrentParameter(QString type, yaml::parameter_info& pi);
+    
     bool Validate();
-
     bool RearrangeTypes();
 
 private slots:

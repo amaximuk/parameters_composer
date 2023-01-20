@@ -22,59 +22,79 @@ namespace yaml
 			return false;
 		}
 
-		//static std::pair<std::vector<yaml::type_info>::iterator, bool> get_type(yaml::file_info& fi, const std::string& name, type_info& type)
-		static auto get_type_info(yaml::file_info& fi, const std::string& type)
+		static yaml::type_info* get_type_info(yaml::file_info& fi, const std::string& type)
 		{
-			const auto it = std::find_if(fi.types.begin(), fi.types.end(), [type](const auto& t) { return t.name == name; });
-			return std::make_pair(it, it != fi.types.end());
+			const auto it = std::find_if(fi.types.begin(), fi.types.end(), [type](const auto& ti) { return ti.name == type; });
+            if (it == fi.types.end())
+                return nullptr;
+            else
+			    return &(*it);
 		}
 
-		static auto get_parameter_info(yaml::file_info& fi, const std::string& type)
-		{
-			const auto it = std::find_if(fi.types.begin(), fi.types.end(), [type](const auto& t) { return t.name == name; });
-			return std::make_pair(it, it != fi.types.end());
-		}
-
-        static bool save_parameters(yaml::file_info& fi, const std::string& type, const yaml::parameter_info& pi)
+        static bool set_type_info(yaml::file_info& fi, const std::string& type, const yaml::type_info& ti, bool exclude_parameters)
         {
-            if (type == "Main")
+            yaml::type_info* pti = get_type_info(fi, type);
+            if (!pti) return false;
+
+            if (exclude_parameters)
             {
-                for (auto& p : fi.parameters)
-                {
-                    if (p.name == pi.name)
-                    {
-                        p = pi;
-                        break;
-                    }
-                }
+                yaml::type_info tit(ti);
+                tit.parameters = pti->parameters;
+                *pti = tit;
             }
             else
             {
-                for (auto& t : fileInfo_.types)
-                {
-                    if (QString::fromStdString(t.name) == type)
-                    {
-                        for (auto& p : t.parameters)
-                        {
-                            if (p.name == pi.name)
-                            {
-                                p = pi;
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                }
+                *pti = ti;
             }
+            return true;
+        }
+
+		static std::vector<yaml::parameter_info>* get_parameters(yaml::file_info& fi, const std::string& type)
+		{
+            std::vector<yaml::parameter_info>* pvect = nullptr;
+            if (type == "Main")
+            {
+                pvect = &fi.parameters;
+            }
+            else
+            {
+                auto pti = get_type_info(fi, type);
+                if (pti) pvect = &pti->parameters;
+            }
+            return pvect;
+		}
+
+		static yaml::parameter_info* get_parameter_info(yaml::file_info& fi, const std::string& type, const std::string& name)
+		{
+            yaml::parameter_info* ppi = nullptr;
+			auto pvect = get_parameters(fi, type);
+            if (pvect)
+            {
+                auto it = std::find_if(pvect->begin(), pvect->end(), [name](const auto& pi) { return pi.name == name; });
+                if (it != pvect->end())
+                    ppi = &(*it);
+            }
+			return ppi;
+		}
+
+        static bool set_parameter(yaml::file_info& fi, const std::string& type, const yaml::parameter_info& pi)
+        {
+            auto ppi = get_parameter_info(fi, type, pi.name);
+            if (ppi)
+                *ppi = pi;
 
             return true;
         }
 
+        static std::vector<std::string> get_type_names(yaml::file_info& fi)
+        {
+            std::vector<std::string> result;
+            for (const auto& v : fi.types)
+                result.push_back(v.name);
+            return result;
+        }
+
 	};
-
-	//auto cc = yaml::helper::get_type(fi, "CHANNEL");
-	//std::cout << cc.second;
-
 }
 
 #endif // YAML_HELPER_H_
