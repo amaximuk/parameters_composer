@@ -15,6 +15,7 @@
 #include <QApplication>
 #include <QFileDialog>
 #include <QCloseEvent>
+#include <QComboBox>
 
 #include "yaml_parser.h"
 #include "yaml_writer.h"
@@ -215,7 +216,8 @@ void MainWindow::on_OpenFile_action()
                 TabControls& tc = GetTabControls(type);
 
                 qobject_cast<QLineEdit*>(tc.Info["NAME"])->setText(QString::fromStdString(ti.name));
-                qobject_cast<QLineEdit*>(tc.Info["TYPE"])->setText(QString::fromStdString(ti.type));
+                qobject_cast<QComboBox*>(tc.Info["TYPE"])->setCurrentText(QString::fromStdString(ti.type));
+                QString textTypeType = qobject_cast<QComboBox*>(tc.Info["TYPE"])->currentText();
                 qobject_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString::fromStdString(ti.description));
 
                 QListWidget* listWidgetValues = qobject_cast<QListWidget*>(tc.Info["VALUES"]);
@@ -235,6 +237,8 @@ void MainWindow::on_OpenFile_action()
                 if (listWidget->count() > 0)
                     listWidget->setCurrentRow(0);
             }
+            //FillTypeTypeNames();
+            FillPropertyTypeNames();
         }
         else
         {
@@ -270,11 +274,18 @@ void MainWindow::on_SaveFile_action()
         if (!ReadCurrentFileInfo())
             return;
 
-        if (!Validate())
+        std::string message;
+        if (!yaml::helper::validate(fileInfo_, message))
+        {
+            QMessageBox::critical(this, "Validate error", QString::fromStdString(message));
             return;
+        }
 
-        if (!RearrangeTypes())
+        if (!yaml::helper::rearrange_types(fileInfo_))
+        {
+            QMessageBox::critical(this, "Rearrange error", "Possible type loop");
             return;
+        }
 
         if (!yaml::writer::write(fileNames[0].toStdString(), fileInfo_))
             return;
@@ -310,11 +321,18 @@ void MainWindow::on_SaveAsFile_action()
         if (!ReadCurrentFileInfo())
             return;
 
-        if (!Validate())
+        std::string message;
+        if (!yaml::helper::validate(fileInfo_, message))
+        {
+            QMessageBox::critical(this, "Validate error", QString::fromStdString(message));
             return;
+        }
 
-        if (!RearrangeTypes())
+        if (!yaml::helper::rearrange_types(fileInfo_))
+        {
+            QMessageBox::critical(this, "Rearrange error", "Possible type loop");
             return;
+        }
 
         if (!yaml::writer::write(fileNames[0].toStdString(), fileInfo_))
             return;
@@ -357,6 +375,9 @@ void MainWindow::on_AddType_action()
         yaml::type_info ti{};
         ti.name = text.toStdString();
         fileInfo_.types.push_back(ti);
+
+        //FillTypeTypeNames();
+        FillPropertyTypeNames();
     }
 }
 
@@ -412,6 +433,9 @@ void MainWindow::on_RemoveType_action()
     tabWidget->removeTab(tabWidget->indexOf(tabWidget->currentWidget()));
     auto it = std::find_if(fileInfo_.types.cbegin(), fileInfo_.types.cend(), [name](auto& t) { if (t.name == name.toStdString()) return true; else return false; });
     fileInfo_.types.erase(it);
+
+    //FillTypeTypeNames();
+    FillPropertyTypeNames();
 }
 
 void MainWindow::CreateMenu()
@@ -633,6 +657,45 @@ void MainWindow::AddLineEditRequiredProperty(QGridLayout* gridLayout, QString na
     tc[name] = lineEdit;
 }
 
+void MainWindow::AddComboBoxPropertyType(QGridLayout* gridLayout, QString name, int index, QString type, MainWindow::ControlsGroup group)
+{
+    gridLayout->addWidget(new QLabel(name), index, 0);
+
+    QComboBox* comboBox = new QComboBox;
+    comboBox->setEditable(false);
+    comboBox->setProperty("name", name);
+    comboBox->setProperty("group", static_cast<int>(group));
+    comboBox->setProperty("type", type);
+
+    for (const auto& s : yaml::helper::get_property_type_names(fileInfo_))
+        comboBox->addItem(QString::fromStdString(s));
+
+    gridLayout->addWidget(comboBox, index, 1);
+
+    auto& tc = GetControls(type, group);
+    tc[name] = comboBox;
+}
+
+void MainWindow::AddComboBoxTypeType(QGridLayout* gridLayout, QString name, int index, QString type, MainWindow::ControlsGroup group)
+{
+    gridLayout->addWidget(new QLabel(name), index, 0);
+
+    QComboBox* comboBox = new QComboBox;
+    comboBox->setEditable(false);
+    comboBox->setProperty("name", name);
+    comboBox->setProperty("group", static_cast<int>(group));
+    comboBox->setProperty("type", type);
+
+    for (const auto& s : yaml::helper::get_type_type_names())
+        comboBox->addItem(QString::fromStdString(s));
+
+    connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::on_currentIndexChanged);
+    gridLayout->addWidget(comboBox, index, 1);
+
+    auto& tc = GetControls(type, group);
+    tc[name] = comboBox;
+}
+
 void MainWindow::AddGroupWidget(QWidget* groupWidget, QString name, QString type, ControlsGroup group)
 {
     auto& tc = GetControls(type, group);
@@ -644,7 +707,7 @@ bool MainWindow::ReadCurrentParameter(QString type, yaml::parameter_info& pi)
     TabControls& tc = GetTabControls(type);
 
     pi.name = qobject_cast<QLineEdit*>(tc.Properties["NAME"])->text().toStdString();
-    pi.type = qobject_cast<QLineEdit*>(tc.Properties["TYPE"])->text().toStdString();
+    pi.type = qobject_cast<QComboBox*>(tc.Properties["TYPE"])->currentText().toStdString();
     pi.display_name = qobject_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->text().toStdString();
     pi.description = qobject_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->toPlainText().toStdString();
     pi.required = qobject_cast<QCheckBox*>(tc.Properties["REQUIRED"])->isChecked();
@@ -698,7 +761,7 @@ bool MainWindow::ReadCurrentTypeInfo(QString type, yaml::type_info& ti)
     TabControls& tc = GetTabControls(type);
 
     ti.name = qobject_cast<QLineEdit*>(tc.Info["NAME"])->text().toStdString();
-    ti.type = qobject_cast<QLineEdit*>(tc.Info["TYPE"])->text().toStdString();
+    ti.type = qobject_cast<QComboBox*>(tc.Info["TYPE"])->currentText().toStdString();
     ti.description = qobject_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->toPlainText().toStdString();
 
     ti.values.clear();
@@ -732,7 +795,7 @@ bool MainWindow::ReadCurrentFileInfo()
     if (!yaml::helper::set_parameter(fileInfo_, "Main", pim))
         return false;
 
-    for (const auto& type : yaml::helper::get_type_names(fileInfo_))
+    for (const auto& type : yaml::helper::get_user_type_names(fileInfo_))
     {
         yaml::type_info tit{};
         if (!ReadCurrentTypeInfo(QString::fromStdString(type), tit))
@@ -752,118 +815,48 @@ bool MainWindow::ReadCurrentFileInfo()
     return true;
 }
 
-bool MainWindow::Validate()
+bool MainWindow::FillPropertyTypeNames()
 {
-    if (fileInfo_.info.id == "")
+    TabControls& tcm = GetTabControls("Main");
+
+    QComboBox* comboBoxMain = qobject_cast<QComboBox*>(tcm.Properties["TYPE"]);
+    QString textMain = comboBoxMain->currentText();
+    comboBoxMain->clear();
+    for (const auto& s : yaml::helper::get_property_type_names(fileInfo_))
+        comboBoxMain->addItem(QString::fromStdString(s));
+    comboBoxMain->setCurrentText(textMain);
+
+    for (int i = 0; i < tabs_.size(); i++)
     {
-        QMessageBox::critical(this, "Error", "Main ID required");
-        return false;
-    }
+        TabControls& tct = tabs_[i];
 
-    for (const auto& p : fileInfo_.parameters)
-    {
-        if (p.name == "")
-        {
-            QMessageBox::critical(this, "Error", "Main parameter NAME required");
-            return false;
-        }
-
-        if (p.type == "") // add list of values !!!
-        {
-            QMessageBox::critical(this, "Error", "Main parameter TYPE required");
-            return false;
-        }
-    }
-
-    for (const auto& t : fileInfo_.types)
-    {
-        if (t.name == "")
-        {
-            QMessageBox::critical(this, "Error", "Type NAME required");
-            return false;
-        }
-
-        for (const auto& tv : t.parameters)
-        {
-            if (tv.name == "")
-            {
-                QMessageBox::critical(this, "Error", "Main parameter NAME required");
-                return false;
-            }
-
-            if (tv.type == "") // add list of values !!!
-            {
-                QMessageBox::critical(this, "Error", "Main parameter TYPE required");
-                return false;
-            }
-        }
+        QComboBox* comboBoxPropertyType = qobject_cast<QComboBox*>(tct.Properties["TYPE"]);
+        QString textPropertyType = comboBoxPropertyType->currentText();
+        comboBoxPropertyType->clear();
+        for (const auto& s : yaml::helper::get_property_type_names(fileInfo_))
+            comboBoxPropertyType->addItem(QString::fromStdString(s));
+        comboBoxPropertyType->setCurrentText(textPropertyType);
     }
 
     return true;
 }
 
-bool MainWindow::RearrangeTypes()
-{
-    QList<QString> sorted_names;
-    bool found_new = true;
-    while (found_new)
-    {
-        found_new = false;
-        for (const auto& ti : fileInfo_.types)
-        {
-            QString tn = QString::fromStdString(ti.name);
-            if (sorted_names.contains(tn))
-                continue;
-
-            bool have_unresolved = false;
-            for (const auto& pi : ti.parameters)
-            {
-                QString ts = QString::fromStdString(pi.type);
-                if (ts.startsWith("array") && ts.length() > 7)
-                    ts = ts.mid(6, ts.length() - 7);
-
-                if (!yaml::helper::is_inner_type(ts.toStdString()) && !sorted_names.contains(ts))
-                {
-                    have_unresolved = true;
-                    break;
-                }
-            }
-
-            if (!have_unresolved)
-            {
-                sorted_names.push_back(tn);
-                found_new = true;
-            }
-        }
-    }
-
-    if (fileInfo_.types.size() > sorted_names.size())
-    {
-        QMessageBox::warning(this, "Warning", "Type loop found");
-        for (const auto& ti : fileInfo_.types)
-        {
-            QString tn = QString::fromStdString(ti.name);
-            if (!sorted_names.contains(tn))
-                sorted_names.push_back(tn);
-        }
-    }
-  
-    std::vector<yaml::type_info> sorted_types;
-    for (const auto& sn : sorted_names)
-    {
-        for (const auto& ti : fileInfo_.types)
-        {
-            if (sn == QString::fromStdString(ti.name))
-            {
-                sorted_types.push_back(ti);
-            }
-        }
-    }
-
-    fileInfo_.types = std::move(sorted_types);
-
-    return true;
-}
+//bool MainWindow::FillTypeTypeNames()
+//{
+//    for (const auto& type : yaml::helper::get_user_type_names(fileInfo_))
+//    {
+//        TabControls& tct = GetTabControls(QString::fromStdString(type));
+//
+//        QComboBox* comboBoxTypeType = qobject_cast<QComboBox*>(tct.Info["TYPE"]);
+//        QString textTypeType = comboBoxTypeType->currentText();
+//        comboBoxTypeType->clear();
+//        for (const auto& s : yaml::helper::get_type_type_names())
+//            comboBoxTypeType->addItem(QString::fromStdString(s));
+//        comboBoxTypeType->setCurrentText(textTypeType);
+//    }
+//
+//    return true;
+//}
 
 QWidget* MainWindow::CreatePropertiesWidget(QString type)
 {
@@ -871,7 +864,7 @@ QWidget* MainWindow::CreatePropertiesWidget(QString type)
 
     int index = 0;
     AddLineEditRequiredProperty(gridLayoutProperties, "NAME", index++, type, MainWindow::ControlsGroup::Properties);
-    AddLineEditRequiredProperty(gridLayoutProperties, "TYPE", index++, type, MainWindow::ControlsGroup::Properties);
+    AddComboBoxPropertyType(gridLayoutProperties, "TYPE", index++, type, MainWindow::ControlsGroup::Properties);
     AddLineEditProperty(gridLayoutProperties, "DISPLAY_NAME", index++, type, MainWindow::ControlsGroup::Properties);
     AddPlainTextEditProperty(gridLayoutProperties, "DESCRIPTION", index++, type, MainWindow::ControlsGroup::Properties);
     AddCheckBoxProperty(gridLayoutProperties, "REQUIRED", index++, type, MainWindow::ControlsGroup::Properties);
@@ -998,7 +991,7 @@ QWidget* MainWindow::CreateTypeTabInfoWidget(QString type)
     int index = 0;
     AddPropertySubheader(gridLayoutInfo, "TYPES", "font-weight: bold; font-size: 14px", index++);
     AddLineEditRequiredProperty(gridLayoutInfo, "NAME", index++, type, ControlsGroup::Info);
-    AddLineEditProperty(gridLayoutInfo, "TYPE", index++, type, ControlsGroup::Info);
+    AddComboBoxTypeType(gridLayoutInfo, "TYPE", index++, type, ControlsGroup::Info);
     AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++, type, ControlsGroup::Info);
     AddListProperty(gridLayoutInfo, "VALUES", index++, type, ControlsGroup::Info);
     AddListProperty(gridLayoutInfo, "INCLUDES", index++, type, ControlsGroup::Info);
@@ -1259,7 +1252,7 @@ void MainWindow::on_listWidgetProperties_currentItemChanged(QListWidgetItem *cur
     TabControls& tc = GetTabControls(type);
 
     qobject_cast<QLineEdit*>(tc.Properties["NAME"])->setText(QString::fromStdString(pic.name));
-    qobject_cast<QLineEdit*>(tc.Properties["TYPE"])->setText(QString::fromStdString(pic.type));
+    qobject_cast<QComboBox*>(tc.Properties["TYPE"])->setCurrentText(QString::fromStdString(pic.type));
     qobject_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->setText(QString::fromStdString(pic.display_name));
     qobject_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->setPlainText(QString::fromStdString(pic.description));
     qobject_cast<QCheckBox*>(tc.Properties["REQUIRED"])->setChecked(pic.required);
@@ -1482,4 +1475,58 @@ void MainWindow::on_editingFinished()
     {
         // Property TYPE
     }
+}
+
+void MainWindow::on_currentIndexChanged(int index)
+{
+    QComboBox* comboBox = qobject_cast<QComboBox*>(sender());
+    QString type = comboBox->property("type").toString();
+    QString name = comboBox->property("name").toString();
+
+    QString t = comboBox->itemText(index);
+    if (t == "yml")
+    {
+        QList<QString> usedInTypes;
+
+        // Check if not array type used
+        for (auto& p : fileInfo_.parameters)
+        {
+            if (QString::fromStdString(p.type) == type)
+            {
+                usedInTypes.push_back("Main");
+                break;
+            }
+        }
+        for (auto& t : fileInfo_.types)
+        {
+            for (auto& p : t.parameters)
+            {
+                if (QString::fromStdString(p.type) == type)
+                {
+                    usedInTypes.push_back(QString::fromStdString(t.name));
+                    break;
+                }
+            }
+        }
+
+        if (usedInTypes.size() > 0)
+        {
+            QString message = QString("Type %1 is used in other types,\nbut for yml types anly array<%1> allowed:\n").arg(type);
+            for (const auto& s : usedInTypes)
+                message += s + "\n";
+            QMessageBox::StandardButton resBtn = QMessageBox::critical(this, "parameters_composer", message);
+
+            comboBox->setCurrentText("enum"); // !!! need get value from fileInfo_
+            return;
+        }
+    }
+
+    yaml::type_info tit{};
+    if (!ReadCurrentTypeInfo(type, tit))
+        return;
+
+    if (!yaml::helper::set_type_info(fileInfo_, type.toStdString(), tit, true))
+        return;
+
+    FillPropertyTypeNames();
 }

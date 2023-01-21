@@ -8,39 +8,44 @@
 
 namespace yaml
 {
-	const std::map<std::string, std::string> type_type_names_ = {
-		{"enum", "str"}
+	const std::vector<std::string> type_type_names_ = {
+		"yml",
+		"enum"
 	};
 
-	const std::map<std::string, std::string> system_type_names_ = {
-		{"unit", "str"},
-		{"path", "str"},
-		{"string", "str"}
+	const std::vector<std::string> parameter_type_names_ = {
+		"unit",
+		"path",
+		"string",
+		"double",
+		"int",
+		"bool",
+		"float",
+		"int8_t",
+		"int16_t",
+		"int32_t",
+		"int64_t",
+		"uint8_t",
+		"uint16_t",
+		"uint32_t",
+		"uint64_t",
+		"array<unit>",
+		"array<path>",
+		"array<string>",
+		"array<double>",
+		"array<int>",
+		"array<bool>",
+		"array<float>",
+		"array<int8_t>",
+		"array<int16_t>",
+		"array<int32_t>",
+		"array<int64_t>",
+		"array<uint8_t>",
+		"array<uint16_t>",
+		"array<uint32_t>",
+		"array<uint64_t>"
 	};
 
-	const std::map<std::string, std::string> cpp_type_names_ = {
-		{"double", "dbl"},
-		{"int", "int"},
-		{"bool", "bool"},
-		{"std::string", "str"},
-		{"float", "dbl"},
-		{"int8_t", "int"},
-		{"int16_t", "int"},
-		{"int32_t", "int"},
-		{"int64_t", "int"},
-		{"uint8_t", "int"},
-		{"uint16_t", "int"},
-		{"uint32_t", "int"},
-		{"uint64_t", "int"}
-	};
-
-	const std::map<std::string, std::string> xml_type_names_ = {
-		{"dbl", "double"},
-		{"int", "int"},
-		{"bool", "bool"},
-		{"str", "std::string"}
-	};
-	
 	struct restrictions_info
 	{
 		// Optional members from yml

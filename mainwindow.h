@@ -55,10 +55,8 @@ private slots:
     void on_RemoveType_action();
 
 private:
-    void CreateMenu();
-
-private:
     void CreateUi();
+    void CreateMenu();
     QWidget* CreateMainTabWidget();
     QWidget* CreateTypeTabWidget(QString type);
     QWidget* CreateMainTabInfoWidget();
@@ -74,14 +72,16 @@ private:
     void AddListProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
     void AddLineEditRequiredProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
     void AddGroupWidget(QWidget* groupWidget, QString name, QString type, ControlsGroup group);
+    void AddComboBoxPropertyType(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
+    void AddComboBoxTypeType(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
 
     bool ReadCurrentFileInfo();
     bool ReadCurrentMainInfo(yaml::info_info& mi);
     bool ReadCurrentTypeInfo(QString type, yaml::type_info& ti);
     bool ReadCurrentParameter(QString type, yaml::parameter_info& pi);
     
-    bool Validate();
-    bool RearrangeTypes();
+    bool FillPropertyTypeNames();
+    //bool FillTypeTypeNames();
 
 private slots:
     void on_toolButton_clicked();
@@ -89,5 +89,6 @@ private slots:
     void on_listWidgetProperties_currentItemChanged(QListWidgetItem *current, QListWidgetItem *previous);
     void on_toolButtonRemoveProperty_clicked();
     void on_editingFinished();
+    void on_currentIndexChanged(int index);
 };
 #endif // MAINWINDOW_H

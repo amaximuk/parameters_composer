@@ -14,13 +14,30 @@ namespace yaml
 	public:
 		static bool is_inner_type(std::string name)
 		{
-			if (system_type_names_.find(name) != system_type_names_.end())
-				return true;
-			if (cpp_type_names_.find(name) != cpp_type_names_.end())
-				return true;
-
+            auto it = std::find_if(parameter_type_names_.cbegin(), parameter_type_names_.cend(), [name](const auto& v) { return v == name; });
+            if (it != parameter_type_names_.cend())
+                return true;
 			return false;
 		}
+
+        static std::vector<std::string> get_type_type_names()
+        {
+            return type_type_names_;
+        }
+
+        static std::vector<std::string> get_property_type_names(yaml::file_info& fi)
+        {
+            std::vector<std::string> result;
+            for (const auto& v : fi.types)
+            {
+                // yml types can be used in array only
+                if (v.type == "enum")
+                    result.push_back(v.name);
+                result.push_back("array<" + v.name + ">");
+            }
+            result.insert(result.end(), parameter_type_names_.cbegin(), parameter_type_names_.cend());
+            return result;
+        }
 
 		static yaml::type_info* get_type_info(yaml::file_info& fi, const std::string& type)
 		{
@@ -86,7 +103,7 @@ namespace yaml
             return true;
         }
 
-        static std::vector<std::string> get_type_names(yaml::file_info& fi)
+        static std::vector<std::string> get_user_type_names(const yaml::file_info& fi)
         {
             std::vector<std::string> result;
             for (const auto& v : fi.types)
@@ -94,6 +111,120 @@ namespace yaml
             return result;
         }
 
+        static bool validate(yaml::file_info& fi, std::string& message)
+        {
+            message = "ok";
+
+            if (fi.info.id == "")
+            {
+                message = "Main ID required";
+                return false;
+            }
+
+            for (const auto& p : fi.parameters)
+            {
+                if (p.name == "")
+                {
+                    message = "Main parameter NAME required";
+                    return false;
+                }
+
+                if (p.type == "") // add list of values !!!
+                {
+                    message = "Main parameter TYPE required";
+                    return false;
+                }
+            }
+
+            for (const auto& t : fi.types)
+            {
+                if (t.name == "")
+                {
+                    message = "Type NAME required";
+                    return false;
+                }
+
+                for (const auto& tv : t.parameters)
+                {
+                    if (tv.name == "")
+                    {
+                        message = t.name + " type parameter NAME required";
+                        return false;
+                    }
+
+                    if (tv.type == "") // add list of values !!!
+                    {
+                        message = t.name + " type parameter TYPE required";
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        static bool rearrange_types(yaml::file_info& fi)
+        {
+            QList<QString> sorted_names;
+            bool found_new = true;
+            while (found_new)
+            {
+                found_new = false;
+                for (const auto& ti : fi.types)
+                {
+                    QString tn = QString::fromStdString(ti.name);
+                    if (sorted_names.contains(tn))
+                        continue;
+
+                    bool have_unresolved = false;
+                    for (const auto& pi : ti.parameters)
+                    {
+                        QString ts = QString::fromStdString(pi.type);
+                        if (ts.startsWith("array") && ts.length() > 7)
+                            ts = ts.mid(6, ts.length() - 7);
+
+                        if (!yaml::helper::is_inner_type(ts.toStdString()) && !sorted_names.contains(ts))
+                        {
+                            have_unresolved = true;
+                            break;
+                        }
+                    }
+
+                    if (!have_unresolved)
+                    {
+                        sorted_names.push_back(tn);
+                        found_new = true;
+                    }
+                }
+            }
+
+            if (fi.types.size() > sorted_names.size())
+            {
+                //QMessageBox::warning(this, "Warning", "Type loop found");
+                for (const auto& ti : fi.types)
+                {
+                    QString tn = QString::fromStdString(ti.name);
+                    if (!sorted_names.contains(tn))
+                        sorted_names.push_back(tn);
+                }
+            }
+
+            std::vector<yaml::type_info> sorted_types;
+            for (const auto& sn : sorted_names)
+            {
+                for (const auto& ti : fi.types)
+                {
+                    if (sn == QString::fromStdString(ti.name))
+                    {
+                        sorted_types.push_back(ti);
+                    }
+                }
+            }
+
+            fi.types = std::move(sorted_types);
+
+            return true;
+        }
 	};
 }
 
