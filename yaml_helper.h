@@ -94,12 +94,81 @@ namespace yaml
 			return ppi;
 		}
 
-        static bool set_parameter(yaml::file_info& fi, const std::string& type, const yaml::parameter_info& pi)
+        static bool set_parameter_info(yaml::file_info& fi, const std::string& type, const yaml::parameter_info& pi)
         {
             auto ppi = get_parameter_info(fi, type, pi.name);
-            if (ppi)
-                *ppi = pi;
+            if (!ppi) return false;
+            *ppi = pi;
+            return true;
+        }
 
+        static bool add_parameter_info(yaml::file_info& fi, const std::string& type, const yaml::parameter_info& pi)
+        {
+            auto ppi = get_parameter_info(fi, type, pi.name);
+            if (ppi) return false;
+            auto pvect = get_parameters(fi, type);
+            if (!pvect) return false;
+            pvect->push_back(pi);
+            return true;
+        }
+
+        static bool remove_parameter_info(yaml::file_info& fi, const std::string& type, const std::string& name)
+        {
+            auto pvect = get_parameters(fi, type);
+            if (!pvect) return false;
+            pvect->erase(std::remove_if(pvect->begin(), pvect->end(), [name](const auto& v) { return v.name == name; }), pvect->end());
+            return true;
+        }
+
+        static bool move_parameter_info(yaml::file_info& fi, const std::string& type, const std::string& name, const bool up)
+        {
+            auto pvect = get_parameters(fi, type);
+            if (!pvect) return false;
+            auto it = std::find_if(pvect->begin(), pvect->end(), [name](auto& p) { return p.name == name; });
+            if (up && it != pvect->begin() && it != pvect->end())
+                std::iter_swap(it, std::next(it, -1));
+            else if(!up && it != std::next(pvect->end(), -1) && it != pvect->end())
+                std::iter_swap(it, std::next(it, 1));
+            return true;
+        }
+
+        static bool have_info_value(yaml::file_info& fi, const std::string& type, const std::string& name)
+        {
+            auto ti = get_type_info(fi, type);
+            if (!ti) return false;
+            if (std::find_if(ti->values.cbegin(), ti->values.cend(), [name](const auto& v) {return v.first == name; }) != ti->values.cend())
+                return true;
+            else
+                return false;
+        }
+
+        static bool add_info_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        {
+            if (have_info_value(fi, type, name))
+                return false;
+            auto ti = get_type_info(fi, type);
+            if (!ti) return false;
+            ti->values.push_back(std::make_pair(name, value));
+            return true;
+        }
+
+        static bool remove_info_value(yaml::file_info& fi, const std::string& type, const std::string& name)
+        {
+            auto ti = get_type_info(fi, type);
+            if (!ti) return false;
+            ti->values.erase(std::remove_if(ti->values.begin(), ti->values.end(), [name](const auto& v) { return v.first == name; }), ti->values.end());
+            return true;
+        }
+
+        static bool move_info_value(yaml::file_info& fi, const std::string& type, const std::string& name, const bool up)
+        {
+            auto ti = get_type_info(fi, type);
+            if (!ti) return false;
+            auto it = std::find_if(ti->values.begin(), ti->values.end(), [name](const auto& v) { return v.first == name; });
+            if (up && it != ti->values.begin() && it != ti->values.end())
+                std::iter_swap(it, std::next(it, -1));
+            else if (!up && it != std::next(ti->values.end(), -1) && it != ti->values.end())
+                std::iter_swap(it, std::next(it, 1));
             return true;
         }
 

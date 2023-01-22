@@ -217,7 +217,7 @@ void MainWindow::on_OpenFile_action()
 
                 qobject_cast<QLineEdit*>(tc.Info["NAME"])->setText(QString::fromStdString(ti.name));
                 qobject_cast<QComboBox*>(tc.Info["TYPE"])->setCurrentText(QString::fromStdString(ti.type));
-                QString textTypeType = qobject_cast<QComboBox*>(tc.Info["TYPE"])->currentText();
+                //QString textTypeType = qobject_cast<QComboBox*>(tc.Info["TYPE"])->currentText();
                 qobject_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString::fromStdString(ti.description));
 
                 QListWidget* listWidgetValues = qobject_cast<QListWidget*>(tc.Info["VALUES"]);
@@ -792,7 +792,7 @@ bool MainWindow::ReadCurrentFileInfo()
     if (!ReadCurrentParameter("Main", pim))
         return false;
 
-    if (!yaml::helper::set_parameter(fileInfo_, "Main", pim))
+    if (!yaml::helper::set_parameter_info(fileInfo_, "Main", pim))
         return false;
 
     for (const auto& type : yaml::helper::get_user_type_names(fileInfo_))
@@ -808,7 +808,7 @@ bool MainWindow::ReadCurrentFileInfo()
         if (!ReadCurrentParameter(QString::fromStdString(tit.name), pit))
             return false;
 
-        if (!yaml::helper::set_parameter(fileInfo_, tit.name, pit))
+        if (!yaml::helper::set_parameter_info(fileInfo_, tit.name, pit))
             return false;
     }
 
@@ -1015,81 +1015,38 @@ void MainWindow::on_toolButton_clicked()
     {
         bool ok;
         QString text = QInputDialog::getText(this, "Add property", "Property name:", QLineEdit::Normal, "", &ok);
-        if (ok && !text.isEmpty())
+        if (!ok || text.isEmpty())
+            return;
+
+        // Validate
+        if (yaml::helper::get_parameter_info(fileInfo_, type.toStdString(), text.toStdString()))
         {
-            QListWidgetItem* newItem = new QListWidgetItem;
-            newItem->setText(text);
-
-            // Validate
-            if (type == "Main")
-            {
-                for (auto& p : fileInfo_.parameters)
-                {
-                    if (QString::fromStdString(p.name) == text)
-                    {
-                        QMessageBox::critical(this, "Error", "Parameter with this NAME already exists: " + text);
-                        return;
-                    }
-                }
-            }
-            else
-            {
-                for (auto& t : fileInfo_.types)
-                {
-                    if (QString::fromStdString(t.name) == type)
-                    {
-                        for (auto& p : t.parameters)
-                        {
-                            if (QString::fromStdString(p.name) == text)
-                            {
-                                QMessageBox::critical(this, "Error", "Parameter with this NAME already exists: " + text);
-                                return;
-                            }
-                        }
-                        break;
-                    }
-                }
-            }
-
-            // Add to control
-            auto& tc = GetControls(type, group);
-            QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PROPERTIES"]);
-            listWidget->addItem(newItem);
-
-            // Add to fileInfo_
-            if (type == "Main")
-            {
-                yaml::parameter_info pi{};
-                pi.name = text.toStdString();
-                pi.type = "string";
-                fileInfo_.parameters.push_back(pi);
-            }
-            else
-            {
-                for (auto& t : fileInfo_.types)
-                {
-                    if (QString::fromStdString(t.name) == type)
-                    {
-                        yaml::parameter_info pi{};
-                        pi.name = text.toStdString();
-                        pi.type = "string";
-                        t.parameters.push_back(pi);
-                        break;
-                    }
-                }
-            }
-
-            // Update
-            listWidget->setCurrentRow(listWidget->count() - 1);
+            QMessageBox::critical(this, "Error", "Parameter with this NAME already exists: " + text);
+            return;
         }
+
+        // Add to control
+        auto& tc = GetControls(type, group);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PROPERTIES"]);
+        listWidget->addItem(new QListWidgetItem(text));
+
+        // Add to fileInfo_
+        yaml::parameter_info pi{};
+        pi.name = text.toStdString();
+        pi.type = "string";
+        pi.required = true;
+        if (!yaml::helper::add_parameter_info(fileInfo_, type.toStdString(), pi))
+            return;
+
+        // Update
+        listWidget->setCurrentRow(listWidget->count() - 1);
     }
     else if (group == ControlsGroup::PropertyList && name == "PROPERTIES" && action == "remove")
     {
         auto& tc = GetControls(type, group);
         QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PROPERTIES"]);
-        if (listWidget->currentItem() == nullptr)
+        if (!listWidget->currentItem())
             return;
-
         QString propertyName = listWidget->currentItem()->text();
 
         QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
@@ -1102,23 +1059,156 @@ void MainWindow::on_toolButton_clicked()
         delete listWidget->currentItem();
 
         // Remove from fileInfo_
-        if (type == "Main")
+        if (!yaml::helper::remove_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString()))
+            return;
+    }
+    else if (group == ControlsGroup::PropertyList && name == "PROPERTIES" && action == "up")
+    {
+        auto& tc = GetControls(type, group);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PROPERTIES"]);
+        if (listWidget->currentItem() == nullptr)
+            return;
+        QString propertyName = listWidget->currentItem()->text();
+
+        // Validate
+        int currentRow = listWidget->currentRow();
+        if (currentRow <= 0)
+            return;
+
+        // Add to control
+        QListWidgetItem* currentItem = listWidget->takeItem(currentRow);
+        listWidget->insertItem(currentRow - 1, currentItem);
+        listWidget->setCurrentRow(currentRow - 1);
+
+        // Move in fileInfo_
+        if (!yaml::helper::move_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString(), true))
+            return;
+    }
+    else if (group == ControlsGroup::PropertyList && name == "PROPERTIES" && action == "down")
+    {
+        auto& tc = GetControls(type, group);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PROPERTIES"]);
+        if (listWidget->currentItem() == nullptr)
+            return;
+        QString propertyName = listWidget->currentItem()->text();
+
+        // Validate
+        int currentRow = listWidget->row(listWidget->currentItem());
+        if (currentRow >= listWidget->count() - 1)
+            return;
+
+        // Add to control
+        QListWidgetItem* currentItem = listWidget->takeItem(currentRow);
+        listWidget->insertItem(currentRow + 1, currentItem);
+        listWidget->setCurrentRow(currentRow + 1);
+
+        // Move in fileInfo_
+        if (!yaml::helper::move_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString(), false))
+            return;
+    }
+    else if (group == ControlsGroup::Info && name == "VALUES" && action == "add")
+    {
+        bool ok;
+        QString textName = QInputDialog::getText(this, "Add value", "Value name:", QLineEdit::Normal, "", &ok);
+        if (!ok || textName.isEmpty())
+            return;
+
+        // Validate
+        if (yaml::helper::have_info_value(fileInfo_, type.toStdString(), textName.toStdString()))
         {
-            auto it = std::find_if(fileInfo_.parameters.cbegin(), fileInfo_.parameters.cend(), [propertyName](auto& p) { if (p.name == propertyName.toStdString()) return true; else return false; });
-            fileInfo_.parameters.erase(it);
+            QMessageBox::critical(this, "Error", "Value with this NAME already exists: " + textName);
+            return;
         }
-        else
-        {
-            for (auto& t : fileInfo_.types)
-            {
-                if (QString::fromStdString(t.name) == type)
-                {
-                    auto it = std::find_if(t.parameters.cbegin(), t.parameters.cend(), [propertyName](auto& p) { if (p.name == propertyName.toStdString()) return true; else return false; });
-                    t.parameters.erase(it);
-                    break;
-                }
-            }
-        }
+
+        QString textValue = QInputDialog::getText(this, "Add value", "Value value:", QLineEdit::Normal, "", &ok);
+        if (!ok || textValue.isEmpty())
+            return;
+
+        // Add to control
+        auto& tc = GetControls(type, group);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["VALUES"]);
+        listWidget->addItem(new QListWidgetItem(textName + " -> " + textValue));
+
+        // Add to fileInfo_
+        if (!yaml::helper::add_info_value(fileInfo_, type.toStdString(), textName.toStdString(), textValue.toStdString()))
+            return;
+
+        // Update
+        listWidget->setCurrentRow(listWidget->count() - 1);
+    }
+    else if (group == ControlsGroup::Info && name == "VALUES" && action == "remove")
+    {
+        auto& tc = GetControls(type, group);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["VALUES"]);
+        if (!listWidget->currentItem())
+            return;
+        QString propertyName = listWidget->currentItem()->text();
+
+        QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+            QString("Are you sure want to remove value: %1?").arg(propertyName), QMessageBox::No | QMessageBox::Yes);
+        if (resBtn != QMessageBox::Yes)
+            return;
+
+        // Remove from control
+        listWidget->removeItemWidget(listWidget->currentItem());
+        delete listWidget->currentItem();
+
+        // Remove from fileInfo_
+        const auto s = propertyName.split(" -> ");
+        if (s.size() < 1)
+            return;
+        if (!yaml::helper::remove_info_value(fileInfo_, type.toStdString(), s[0].toStdString()))
+            return;
+    }
+    else if (group == ControlsGroup::Info && name == "VALUES" && action == "up")
+    {
+        auto& tc = GetControls(type, group);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["VALUES"]);
+        if (!listWidget->currentItem())
+            return;
+        QString propertyName = listWidget->currentItem()->text();
+
+        // Validate
+        int currentRow = listWidget->currentRow();
+        if (currentRow <= 0)
+            return;
+
+        // Add to control
+        QListWidgetItem* currentItem = listWidget->takeItem(currentRow);
+        listWidget->insertItem(currentRow - 1, currentItem);
+        listWidget->setCurrentRow(currentRow - 1);
+
+        // Move in fileInfo_
+        const auto s = propertyName.split(" -> ");
+        if (s.size() < 1)
+            return;
+        if (!yaml::helper::move_info_value(fileInfo_, type.toStdString(), s[0].toStdString(), true))
+            return;
+    }
+    else if (group == ControlsGroup::Info && name == "VALUES" && action == "down")
+    {
+        auto& tc = GetControls(type, group);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["VALUES"]);
+        if (listWidget->currentItem() == nullptr)
+            return;
+        QString propertyName = listWidget->currentItem()->text();
+
+        // Validate
+        int currentRow = listWidget->row(listWidget->currentItem());
+        if (currentRow >= listWidget->count() - 1)
+            return;
+
+        // Add to control
+        QListWidgetItem* currentItem = listWidget->takeItem(currentRow);
+        listWidget->insertItem(currentRow + 1, currentItem);
+        listWidget->setCurrentRow(currentRow + 1);
+
+        // Move in fileInfo_
+        const auto s = propertyName.split(" -> ");
+        if (s.size() < 1)
+            return;
+        if (!yaml::helper::move_info_value(fileInfo_, type.toStdString(), s[0].toStdString(), false))
+            return;
     }
     else if (group == ControlsGroup::Properties && name == "SET" && action == "add")
     {
@@ -1244,7 +1334,7 @@ void MainWindow::on_listWidgetProperties_currentItemChanged(QListWidgetItem *cur
         if (!ReadCurrentParameter(type, pip))
             return;
 
-        if (!yaml::helper::set_parameter(fileInfo_, type.toStdString(), pip))
+        if (!yaml::helper::set_parameter_info(fileInfo_, type.toStdString(), pip))
             return;
     }
 
@@ -1525,8 +1615,10 @@ void MainWindow::on_currentIndexChanged(int index)
     if (!ReadCurrentTypeInfo(type, tit))
         return;
 
-    if (!yaml::helper::set_type_info(fileInfo_, type.toStdString(), tit, true))
-        return;
+    auto ti = yaml::helper::get_type_info(fileInfo_, type.toStdString());
+    ti->type = tit.type;
+    //if (!yaml::helper::set_type_info(fileInfo_, type.toStdString(), tit, true))
+    //    return;
 
     FillPropertyTypeNames();
 }
