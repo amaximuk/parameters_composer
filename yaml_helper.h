@@ -39,6 +39,14 @@ namespace yaml
             return result;
         }
 
+        static std::vector<std::string> get_user_type_names(const yaml::file_info& fi)
+        {
+            std::vector<std::string> result;
+            for (const auto& v : fi.types)
+                result.push_back(v.name);
+            return result;
+        }
+
 		static yaml::type_info* get_type_info(yaml::file_info& fi, const std::string& type)
 		{
 			const auto it = std::find_if(fi.types.begin(), fi.types.end(), [type](const auto& ti) { return ti.name == type; });
@@ -172,12 +180,164 @@ namespace yaml
             return true;
         }
 
-        static std::vector<std::string> get_user_type_names(const yaml::file_info& fi)
+        static bool have_info_include(yaml::file_info& fi, const std::string& type, const std::string& name)
         {
-            std::vector<std::string> result;
-            for (const auto& v : fi.types)
-                result.push_back(v.name);
-            return result;
+            auto ti = get_type_info(fi, type);
+            if (!ti) return false;
+            if (std::find_if(ti->includes.cbegin(), ti->includes.cend(), [name](const auto& v) {return v == name; }) != ti->includes.cend())
+                return true;
+            else
+                return false;
+        }
+
+        static bool add_info_include(yaml::file_info& fi, const std::string& type, const std::string& name)
+        {
+            if (have_info_include(fi, type, name))
+                return false;
+            auto ti = get_type_info(fi, type);
+            if (!ti) return false;
+            ti->includes.push_back(name);
+            return true;
+        }
+
+        static bool remove_info_include(yaml::file_info& fi, const std::string& type, const std::string& name)
+        {
+            auto ti = get_type_info(fi, type);
+            if (!ti) return false;
+            ti->includes.erase(std::remove_if(ti->includes.begin(), ti->includes.end(), [name](const auto& v) { return v == name; }), ti->includes.end());
+            return true;
+        }
+
+        static bool move_info_include(yaml::file_info& fi, const std::string& type, const std::string& name, const bool up)
+        {
+            auto ti = get_type_info(fi, type);
+            if (!ti) return false;
+            auto it = std::find_if(ti->includes.begin(), ti->includes.end(), [name](const auto& v) { return v == name; });
+            if (up && it != ti->includes.begin() && it != ti->includes.end())
+                std::iter_swap(it, std::next(it, -1));
+            else if (!up && it != std::next(ti->includes.end(), -1) && it != ti->includes.end())
+                std::iter_swap(it, std::next(it, 1));
+            return true;
+        }
+
+        static bool have_properties_set_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        {
+            auto ppi = get_parameter_info(fi, type, name);
+            if (!ppi) return false;
+            if (std::find_if(ppi->restrictions.set_.cbegin(), ppi->restrictions.set_.cend(), [value](const auto& v) {return v == value; }) != ppi->restrictions.set_.cend())
+                return true;
+            else
+                return false;
+        }
+
+        static bool add_properties_set_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        {
+            if (have_properties_set_value(fi, type, name, value))
+                return false;
+            auto ppi = get_parameter_info(fi, type, name);
+            if (!ppi) return false;
+            ppi->restrictions.set_.push_back(value);
+            return true;
+        }
+
+        static bool remove_properties_set_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        {
+            auto ppi = get_parameter_info(fi, type, name);
+            if (!ppi) return false;
+            ppi->restrictions.set_.erase(std::remove_if(ppi->restrictions.set_.begin(), ppi->restrictions.set_.end(), [value](const auto& v) { return v == value; }), ppi->restrictions.set_.end());
+            return true;
+        }
+
+        static bool move_properties_set_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value, const bool up)
+        {
+            auto ppi = get_parameter_info(fi, type, name);
+            if (!ppi) return false;
+            auto it = std::find_if(ppi->restrictions.set_.begin(), ppi->restrictions.set_.end(), [value](const auto& v) { return v == value; });
+            if (up && it != ppi->restrictions.set_.begin() && it != ppi->restrictions.set_.end())
+                std::iter_swap(it, std::next(it, -1));
+            else if (!up && it != std::next(ppi->restrictions.set_.end(), -1) && it != ppi->restrictions.set_.end())
+                std::iter_swap(it, std::next(it, 1));
+            return true;
+        }
+
+        static bool have_properties_set_count_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        {
+            auto ppi = get_parameter_info(fi, type, name);
+            if (!ppi) return false;
+            if (std::find_if(ppi->restrictions.set_count.cbegin(), ppi->restrictions.set_count.cend(), [value](const auto& v) {return v == value; }) != ppi->restrictions.set_count.cend())
+                return true;
+            else
+                return false;
+        }
+
+        static bool add_properties_set_count_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        {
+            if (have_properties_set_count_value(fi, type, name, value))
+                return false;
+            auto ppi = get_parameter_info(fi, type, name);
+            if (!ppi) return false;
+            ppi->restrictions.set_count.push_back(value);
+            return true;
+        }
+
+        static bool remove_properties_set_count_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        {
+            auto ppi = get_parameter_info(fi, type, name);
+            if (!ppi) return false;
+            ppi->restrictions.set_count.erase(std::remove_if(ppi->restrictions.set_count.begin(), ppi->restrictions.set_count.end(), [value](const auto& v) { return v == value; }), ppi->restrictions.set_count.end());
+            return true;
+        }
+
+        static bool move_properties_set_count_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value, const bool up)
+        {
+            auto ppi = get_parameter_info(fi, type, name);
+            if (!ppi) return false;
+            auto it = std::find_if(ppi->restrictions.set_count.begin(), ppi->restrictions.set_count.end(), [value](const auto& v) { return v == value; });
+            if (up && it != ppi->restrictions.set_count.begin() && it != ppi->restrictions.set_count.end())
+                std::iter_swap(it, std::next(it, -1));
+            else if (!up && it != std::next(ppi->restrictions.set_count.end(), -1) && it != ppi->restrictions.set_count.end())
+                std::iter_swap(it, std::next(it, 1));
+            return true;
+        }
+
+        static bool have_properties_ids_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        {
+            auto ppi = get_parameter_info(fi, type, name);
+            if (!ppi) return false;
+            if (std::find_if(ppi->restrictions.ids.cbegin(), ppi->restrictions.ids.cend(), [value](const auto& v) {return v == value; }) != ppi->restrictions.ids.cend())
+                return true;
+            else
+                return false;
+        }
+
+        static bool add_properties_ids_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        {
+            if (have_properties_ids_value(fi, type, name, value))
+                return false;
+            auto ppi = get_parameter_info(fi, type, name);
+            if (!ppi) return false;
+            ppi->restrictions.ids.push_back(value);
+            return true;
+        }
+
+        static bool remove_properties_ids_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        {
+            auto ppi = get_parameter_info(fi, type, name);
+            if (!ppi) return false;
+            ppi->restrictions.ids.erase(std::remove_if(ppi->restrictions.ids.begin(), ppi->restrictions.ids.end(), [value](const auto& v) { return v == value; }), ppi->restrictions.ids.end());
+            return true;
+        }
+
+        static bool move_properties_ids_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value, const bool up)
+        {
+            auto ppi = get_parameter_info(fi, type, name);
+            if (!ppi) return false;
+            auto it = std::find_if(ppi->restrictions.ids.begin(), ppi->restrictions.ids.end(), [value](const auto& v) { return v == value; });
+            if (up && it != ppi->restrictions.ids.begin() && it != ppi->restrictions.ids.end())
+                std::iter_swap(it, std::next(it, -1));
+            else if (!up && it != std::next(ppi->restrictions.ids.end(), -1) && it != ppi->restrictions.ids.end())
+                std::iter_swap(it, std::next(it, 1));
+            return true;
         }
 
         static bool validate(yaml::file_info& fi, std::string& message)

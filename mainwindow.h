@@ -80,12 +80,12 @@ private:
     bool ReadCurrentTypeInfo(QString type, yaml::type_info& ti);
     bool ReadCurrentParameter(QString type, yaml::parameter_info& pi);
     
+    bool HaveCurrentParameter(QString type);
     bool FillPropertyTypeNames();
     //bool FillTypeTypeNames();
 
 private slots:
     void on_toolButton_clicked();
-    void on_toolButtonAddProperty_clicked();
     void on_listWidgetProperties_currentItemChanged(QListWidgetItem *current, QListWidgetItem *previous);
     void on_toolButtonRemoveProperty_clicked();
     void on_editingFinished();
