@@ -186,7 +186,7 @@ namespace yaml
 
             if (fi.info.id == "")
             {
-                message = "Main ID required";
+                message = "Поле ID является обязательным (Main)";
                 return false;
             }
 
@@ -194,13 +194,13 @@ namespace yaml
             {
                 if (p.name == "")
                 {
-                    message = "Main parameter NAME required";
+                    message = "Поле NAME у параметров является обязательным (Main)";
                     return false;
                 }
 
                 if (p.type == "") // add list of values !!!
                 {
-                    message = "Main parameter TYPE required";
+                    message = "Поле TYPE у параметров является обязательным (Main/" + p.name + ")";
                     return false;
                 }
             }
@@ -209,7 +209,7 @@ namespace yaml
             {
                 if (t.name == "")
                 {
-                    message = "Type NAME required";
+                    message = "Поле NAME у типов является обязательным (" + t.name + ")";
                     return false;
                 }
 
@@ -217,13 +217,13 @@ namespace yaml
                 {
                     if (tv.name == "")
                     {
-                        message = t.name + " type parameter NAME required";
+                        message = "Поле NAME у параметров является обязательным (" + t.name + ")";
                         return false;
                     }
 
                     if (tv.type == "") // add list of values !!!
                     {
-                        message = t.name + " type parameter TYPE required";
+                        message = "Поле TYPE у параметров является обязательным (" + t.name + "/" + tv.name + ")";
                         return false;
                     }
                 }
@@ -269,7 +269,7 @@ namespace yaml
 
             if (fi.types.size() > sorted_names.size())
             {
-                //QMessageBox::warning(this, "Warning", "Type loop found");
+                // Type loop found
                 for (const auto& ti : fi.types)
                 {
                     QString tn = QString::fromStdString(ti.name);
