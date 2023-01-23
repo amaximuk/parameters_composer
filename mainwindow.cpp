@@ -41,7 +41,7 @@ MainWindow::~MainWindow()
 void MainWindow::closeEvent(QCloseEvent* event)
 {
     QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-        "Are you sure want to exit?\nAll unsaved work will be lost!", QMessageBox::No | QMessageBox::Yes);
+        "Вы действительно хотите выйти?\nВсе несохраненные изменения будут потеряны!", QMessageBox::No | QMessageBox::Yes);
     if (resBtn == QMessageBox::Yes)
         event->accept();
     else
@@ -117,7 +117,7 @@ bool MainWindow::RenameTabControls(QString oldType, QString newType)
 void MainWindow::on_NewFile_action()
 {
     QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-        "Are you sure want to create new file?\nAll unsaved work will be lost!", QMessageBox::No | QMessageBox::Yes);
+        "Вы действительно хотите создать новый файл?\nВсе несохраненные изменения будут потеряны!", QMessageBox::No | QMessageBox::Yes);
     if (resBtn != QMessageBox::Yes)
         return;
 
@@ -136,7 +136,7 @@ void MainWindow::on_NewFile_action()
 void MainWindow::on_Quit_action()
 {
     QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-        "Are you sure want to exit?\nAll unsaved work will be lost!", QMessageBox::No | QMessageBox::Yes);
+        "Вы действительно хотите выйти?\nВсе несохраненные изменения будут потеряны!", QMessageBox::No | QMessageBox::Yes);
     if (resBtn == QMessageBox::Yes)
         QApplication::quit();
 }
@@ -146,7 +146,7 @@ void MainWindow::on_OpenFile_action()
     if (currentFileName_ != "")
     {
         QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-            "Are you sure want to open file?\nAll unsaved work will be lost!", QMessageBox::No | QMessageBox::Yes);
+            "Вы действительно хотите открыть файл?\nВсе несохраненные изменения будут потеряны!", QMessageBox::No | QMessageBox::Yes);
         if (resBtn != QMessageBox::Yes)
             return;
     }
@@ -249,7 +249,7 @@ void MainWindow::on_OpenFile_action()
 void MainWindow::on_SaveFile_action()
 {
     QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-        "Are you sure want to save file?\nFile will be overwriten!", QMessageBox::No | QMessageBox::Yes);
+        "Вы действительно хотите сохранить файл?\nФайл будет перезаписан!", QMessageBox::No | QMessageBox::Yes);
     if (resBtn != QMessageBox::Yes)
         return;
 
@@ -283,7 +283,7 @@ void MainWindow::on_SaveFile_action()
 
         if (!yaml::helper::rearrange_types(fileInfo_))
         {
-            QMessageBox::critical(this, "Rearrange error", "Possible type loop");
+            QMessageBox::critical(this, "Rearrange error", "Возможно, петля в типах");
             return;
         }
 
@@ -330,7 +330,7 @@ void MainWindow::on_SaveAsFile_action()
 
         if (!yaml::helper::rearrange_types(fileInfo_))
         {
-            QMessageBox::critical(this, "Rearrange error", "Possible type loop");
+            QMessageBox::critical(this, "Rearrange error", "Возможно, петля в типах");
             return;
         }
 
@@ -360,7 +360,7 @@ void MainWindow::on_AddType_action()
         {
             if (QString::fromStdString(ti.name) == text)
             {
-                QMessageBox::critical(this, "Error", "Type with this NAME already exists: " + text);
+                QMessageBox::critical(this, "Error", QString("Тип с именем %1 уже существует").arg(text));
                 return;
             }
         }
@@ -388,12 +388,12 @@ void MainWindow::on_RemoveType_action()
 
     if (name == "Main")
     {
-        QMessageBox::warning(this, "parameters_composer", "Main page cannot be deleted");
+        QMessageBox::warning(this, "parameters_composer", "Главная страница не может быть удалена");
         return;
     }
 
     QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-        QString("Are you sure want to delete type: %1?").arg(name), QMessageBox::No | QMessageBox::Yes);
+        QString("Вы действительно хотите удалить тип %1?").arg(name), QMessageBox::No | QMessageBox::Yes);
     if (resBtn != QMessageBox::Yes)
         return;
 
@@ -423,7 +423,7 @@ void MainWindow::on_RemoveType_action()
 
     if (usedInTypes.size() > 0)
     {
-        QString message = QString("Type %1 is used in other types:\n").arg(name);
+        QString message = QString("Тип %1 используется в других типах:\n").arg(name);
         for (const auto& s : usedInTypes)
             message += s + "\n";
         QMessageBox::StandardButton resBtn = QMessageBox::critical(this, "parameters_composer", message);
@@ -1021,7 +1021,7 @@ void MainWindow::on_toolButton_clicked()
         // Validate
         if (yaml::helper::get_parameter_info(fileInfo_, type.toStdString(), text.toStdString()))
         {
-            QMessageBox::critical(this, "Error", "Parameter with this NAME already exists: " + text);
+            QMessageBox::critical(this, "Error", QString("Параметр с именем %1 уже существует").arg(text));
             return;
         }
 
@@ -1050,7 +1050,7 @@ void MainWindow::on_toolButton_clicked()
         QString propertyName = listWidget->currentItem()->text();
 
         QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-            QString("Are you sure want to remove property: %1?").arg(propertyName), QMessageBox::No | QMessageBox::Yes);
+            QString("Вы действительно хотите удалить свойство %1?").arg(propertyName), QMessageBox::No | QMessageBox::Yes);
         if (resBtn != QMessageBox::Yes)
             return;
 
@@ -1109,18 +1109,18 @@ void MainWindow::on_toolButton_clicked()
     else if (group == ControlsGroup::Info && name == "VALUES" && action == "add")
     {
         bool ok;
-        QString textName = QInputDialog::getText(this, "Add value", "Value name:", QLineEdit::Normal, "", &ok);
+        QString textName = QInputDialog::getText(this, "Add value", "Имя:", QLineEdit::Normal, "", &ok);
         if (!ok || textName.isEmpty())
             return;
 
         // Validate
         if (yaml::helper::have_info_value(fileInfo_, type.toStdString(), textName.toStdString()))
         {
-            QMessageBox::critical(this, "Error", "Value with this NAME already exists: " + textName);
+            QMessageBox::critical(this, "Error", QString("Значение с именем %1 уже существует").arg(textName));
             return;
         }
 
-        QString textValue = QInputDialog::getText(this, "Add value", "Value value:", QLineEdit::Normal, "", &ok);
+        QString textValue = QInputDialog::getText(this, "Add value", "Значение:", QLineEdit::Normal, "", &ok);
         if (!ok || textValue.isEmpty())
             return;
 
@@ -1145,7 +1145,7 @@ void MainWindow::on_toolButton_clicked()
         QString propertyName = listWidget->currentItem()->text();
 
         QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-            QString("Are you sure want to remove value: %1?").arg(propertyName), QMessageBox::No | QMessageBox::Yes);
+            QString("Вы действительно хотите удалить значение %1?").arg(propertyName), QMessageBox::No | QMessageBox::Yes);
         if (resBtn != QMessageBox::Yes)
             return;
 
@@ -1236,7 +1236,7 @@ void MainWindow::on_toolButton_clicked()
                         auto it = std::find_if(p.restrictions.set_.cbegin(), p.restrictions.set_.cend(), [text](auto& p) { if (p == text.toStdString()) return true; else return false; });
                         if (it != p.restrictions.set_.cend())
                         {
-                            QMessageBox::critical(this, "Error", "Restriction with this value already exists: " + text);
+                            QMessageBox::critical(this, "Error", QString("Ограничение со значением %1 уже существует").arg(text));
                             return;
                         }
                     }
@@ -1255,7 +1255,7 @@ void MainWindow::on_toolButton_clicked()
                                 auto it = std::find_if(p.restrictions.set_.cbegin(), p.restrictions.set_.cend(), [text](auto& p) { if (p == text.toStdString()) return true; else return false; });
                                 if (it != p.restrictions.set_.cend())
                                 {
-                                    QMessageBox::critical(this, "Error", "Restriction with this value already exists: " + text);
+                                    QMessageBox::critical(this, "Error", QString("Ограничение со значением %1 уже существует").arg(text));
                                     return;
                                 }
                             }
@@ -1421,7 +1421,7 @@ void MainWindow::on_editingFinished()
         {
             if (QString::fromStdString(ti.name) == newName)
             {
-                QMessageBox::critical(this, "Error", "Type with this NAME already exists: " + newName);
+                QMessageBox::critical(this, "Error", QString("Тип с именем %1 уже существует").arg(newName));
                 lineEdit->setText(oldName);
                 return;
             }
@@ -1522,7 +1522,7 @@ void MainWindow::on_editingFinished()
         {
             if (listWidget->item(i)->text() == newName && listWidget->selectedItems()[0] != listWidget->item(i))
             {
-                QMessageBox::critical(this, "Error", "Property with this NAME already exists: " + newName);
+                QMessageBox::critical(this, "Error", QString("Свойство с именем %1 уже существует").arg(newName));
                 if (listWidget->selectedItems().size() > 0)
                     lineEdit->setText(oldName);
                 return;
@@ -1601,7 +1601,7 @@ void MainWindow::on_currentIndexChanged(int index)
 
         if (usedInTypes.size() > 0)
         {
-            QString message = QString("Type %1 is used in other types,\nbut for yml types anly array<%1> allowed:\n").arg(type);
+            QString message = QString("Тип %1 используется для параметра в другом типе,\nно для типов yml допускается использование только в массивах array<%1>:\n").arg(type);
             for (const auto& s : usedInTypes)
                 message += s + "\n";
             QMessageBox::StandardButton resBtn = QMessageBox::critical(this, "parameters_composer", message);
