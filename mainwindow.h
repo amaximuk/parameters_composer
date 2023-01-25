@@ -85,10 +85,9 @@ private:
     //bool FillTypeTypeNames();
 
 private slots:
-    void on_toolButton_clicked();
-    void on_listWidgetProperties_currentItemChanged(QListWidgetItem *current, QListWidgetItem *previous);
-    void on_toolButtonRemoveProperty_clicked();
-    void on_editingFinished();
-    void on_currentIndexChanged(int index);
+    void on_ListControlClicked();
+    void on_CurrentItemChanged(QListWidgetItem *current, QListWidgetItem *previous);
+    void on_EditingFinished();
+    void on_CurrentIndexChanged(int index);
 };
 #endif // MAINWINDOW_H

@@ -558,7 +558,7 @@ QWidget* MainWindow::CreatePropertyListWidget(QString type)
 
     QListWidget* listWidget = new QListWidget;
     listWidget->setProperty("type", type);
-    connect(listWidget, &QListWidget::currentItemChanged, this, &MainWindow::on_listWidgetProperties_currentItemChanged);
+    connect(listWidget, &QListWidget::currentItemChanged, this, &MainWindow::on_CurrentItemChanged);
 
     QVBoxLayout* vBoxLayoutPropertyList = new QVBoxLayout;
     vBoxLayoutPropertyList->addWidget(labelPropertyListHeader, 0, Qt::AlignCenter);
@@ -647,7 +647,7 @@ void MainWindow::AddLineEditRequiredProperty(QGridLayout* gridLayout, QString na
     lineEdit->setProperty("type", type);
     
     //connect(lineEdit, &QLineEdit::editingFinished, this, std::bind(&MainWindow::OnEditingFinished, this, type, group, name));
-    connect(lineEdit, &QLineEdit::editingFinished, this, &MainWindow::on_editingFinished);
+    connect(lineEdit, &QLineEdit::editingFinished, this, &MainWindow::on_EditingFinished);
     gridLayout->addWidget(lineEdit, index, 1);
 
     auto& tc = GetControls(type, group);
@@ -686,7 +686,7 @@ void MainWindow::AddComboBoxTypeType(QGridLayout* gridLayout, QString name, int 
     for (const auto& s : yaml::helper::get_type_type_names())
         comboBox->addItem(QString::fromStdString(s));
 
-    connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::on_currentIndexChanged);
+    connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::on_CurrentIndexChanged);
     gridLayout->addWidget(comboBox, index, 1);
 
     auto& tc = GetControls(type, group);
@@ -921,7 +921,7 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListAdd->setProperty("name", name);
     toolButtonPropertyListAdd->setProperty("action", "add");
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListAdd);
-    connect(toolButtonPropertyListAdd, &QToolButton::clicked, this, &MainWindow::on_toolButton_clicked);
+    connect(toolButtonPropertyListAdd, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
     //connect(toolButtonPropertyListAdd, &QToolButton::clicked, this, std::bind(&MainWindow::on_toolButton_name_clicked, this, QString("Knopka")));
 
     QToolButton* toolButtonPropertyListRemove = new QToolButton;
@@ -933,7 +933,7 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListRemove->setProperty("name", name);
     toolButtonPropertyListRemove->setProperty("action", "remove");
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListRemove);
-    connect(toolButtonPropertyListRemove, &QToolButton::clicked, this, &MainWindow::on_toolButton_clicked);
+    connect(toolButtonPropertyListRemove, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
 
     QToolButton* toolButtonPropertyListUp = new QToolButton;
     toolButtonPropertyListUp->setFixedSize(buttonSize, buttonSize);
@@ -944,7 +944,7 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListUp->setProperty("name", name);
     toolButtonPropertyListUp->setProperty("action", "up");
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListUp);
-    connect(toolButtonPropertyListUp, &QToolButton::clicked, this, &MainWindow::on_toolButton_clicked);
+    connect(toolButtonPropertyListUp, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
 
     QToolButton* toolButtonPropertyListDown = new QToolButton;
     toolButtonPropertyListDown->setFixedSize(buttonSize, buttonSize);
@@ -955,7 +955,7 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListDown->setProperty("name", name);
     toolButtonPropertyListDown->setProperty("action", "down");
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListDown);
-    connect(toolButtonPropertyListDown, &QToolButton::clicked, this, &MainWindow::on_toolButton_clicked);
+    connect(toolButtonPropertyListDown, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
 
     hBoxLayoutPropertyListButtons->addStretch();
 
@@ -1013,7 +1013,7 @@ QWidget* MainWindow::CreateTypeTabInfoWidget(QString type)
     return widgetSplitterInfo;
 }
 
-void MainWindow::on_toolButton_clicked()
+void MainWindow::on_ListControlClicked()
 {
     QToolButton* tb = qobject_cast<QToolButton*>(sender());
     QString type = tb->property("type").toString();
@@ -1724,7 +1724,7 @@ void MainWindow::on_toolButton_clicked()
     }
 }
 
-void MainWindow::on_listWidgetProperties_currentItemChanged(QListWidgetItem *current, QListWidgetItem *previous)
+void MainWindow::on_CurrentItemChanged(QListWidgetItem *current, QListWidgetItem *previous)
 {
     QListWidget* list = qobject_cast<QListWidget*>(sender());
     QString type = list->property("type").toString();
@@ -1789,18 +1789,7 @@ void MainWindow::on_listWidgetProperties_currentItemChanged(QListWidgetItem *cur
     }
 }
 
-
-void MainWindow::on_toolButtonRemoveProperty_clicked()
-{
-//    auto si = ui->listWidgetProperties->selectedItems();
-//    if (si.size() > 0)
-//    {
-//        delete si[0];
-//    }
-}
-
-//void MainWindow::OnEditingFinished(QString type, ControlsGroup group, QString name)
-void MainWindow::on_editingFinished()
+void MainWindow::on_EditingFinished()
 {
     QLineEdit* lineEdit = qobject_cast<QLineEdit*>(sender());
     if (!lineEdit->isModified()) return; //!!!
@@ -1975,7 +1964,7 @@ void MainWindow::on_editingFinished()
     }
 }
 
-void MainWindow::on_currentIndexChanged(int index)
+void MainWindow::on_CurrentIndexChanged(int index)
 {
     QComboBox* comboBox = qobject_cast<QComboBox*>(sender());
     QString type = comboBox->property("type").toString();
