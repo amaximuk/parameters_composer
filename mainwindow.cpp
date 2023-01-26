@@ -1839,27 +1839,27 @@ void MainWindow::on_EditingFinished()
 
 
         TabControls& tc_m = GetTabControls("Main");
-        QLineEdit* t_m = qobject_cast<QLineEdit*>(tc_m.Properties["TYPE"]);
-        if (t_m->text() == oldName)
+        QComboBox* t_m = qobject_cast<QComboBox*>(tc_m.Properties["TYPE"]);
+        if (t_m->currentText() == oldName)
         {
-            t_m->setText(newName);
+            t_m->setCurrentText(newName);
         }
-        if (t_m->text() == arrayOldName)
+        if (t_m->currentText() == arrayOldName)
         {
-            t_m->setText(arrayNewName);
+            t_m->setCurrentText(arrayNewName);
         }
 
         for (auto& t : fileInfo_.types)
         {
             TabControls& tc_t = GetTabControls(QString::fromStdString(t.name));
-            QLineEdit* t_t = qobject_cast<QLineEdit*>(tc_m.Properties["TYPE"]);
-            if (t_t->text() == oldName)
+            QComboBox* t_t = qobject_cast<QComboBox*>(tc_m.Properties["TYPE"]);
+            if (t_t->currentText() == oldName)
             {
-                t_t->setText(newName);
+                t_t->setCurrentText(newName);
             }
-            if (t_t->text() == arrayOldName)
+            if (t_t->currentText() == arrayOldName)
             {
-                t_t->setText(arrayNewName);
+                t_t->setCurrentText(arrayNewName);
             }
         }
 
