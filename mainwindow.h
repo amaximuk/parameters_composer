@@ -84,6 +84,10 @@ private:
     bool FillPropertyTypeNames();
     //bool FillTypeTypeNames();
 
+    void Update();
+    void UpdateMain();
+    void UpdateType(QString type);
+
 private slots:
     void on_ListControlClicked();
     void on_CurrentItemChanged(QListWidgetItem *current, QListWidgetItem *previous);

@@ -175,65 +175,14 @@ void MainWindow::on_OpenFile_action()
             currentFileName_ = fileNames[0];
             setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
 
+            UpdateMain();
+            for (const auto& type : yaml::helper::get_user_type_names(fileInfo_))
             {
-                TabControls& tc = GetTabControls("Main");
-
-                qobject_cast<QLineEdit*>(tc.Info["ID"])->setText(QString::fromStdString(fileInfo_.info.id));
-                qobject_cast<QLineEdit*>(tc.Info["DISPLAY_NAME"])->setText(QString::fromStdString(fileInfo_.info.display_name));
-                qobject_cast<QLineEdit*>(tc.Info["CATEGORY"])->setText(QString::fromStdString(fileInfo_.info.category));
-                qobject_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString::fromStdString(fileInfo_.info.description));
-                qobject_cast<QLineEdit*>(tc.Info["PICTOGRAM"])->setText(QString::fromStdString(fileInfo_.info.pictogram));
-                qobject_cast<QLineEdit*>(tc.Info["HINT"])->setText(QString::fromStdString(fileInfo_.info.hint));
-                qobject_cast<QLineEdit*>(tc.Info["AUTHOR"])->setText(QString::fromStdString(fileInfo_.info.author));
-                qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setText(QString::fromStdString(fileInfo_.info.wiki));
-                qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setCursorPosition(0);
-
-                QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
-                //for (int i = 0; i < listWidget->count(); ++i)
-                //{
-                //    listWidget->item(i)->setSelected(false);
-                //}
-                //listWidget->clear();
-                for (const auto& pi : fileInfo_.parameters)
-                    listWidget->addItem(QString::fromStdString(pi.name));
-                if (listWidget->count() > 0)
-                    listWidget->setCurrentRow(0);
+                QWidget* widgetTabType = CreateTypeTabWidget(QString::fromStdString(type));
+                qobject_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, QString::fromStdString(type));
+                UpdateType(QString::fromStdString(type));
             }
 
-            //while (qobject_cast<QTabWidget*>(centralWidget())->count() > 1)
-            //    qobject_cast<QTabWidget*>(centralWidget())->removeTab(1);
-
-            for (const auto& ti : fileInfo_.types)
-            {
-                QString type = QString::fromStdString(ti.name);
-
-                QWidget* widgetTabType = CreateTypeTabWidget(type);
-                qobject_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, type);
-                
-                TabControls& tc = GetTabControls(type);
-
-                qobject_cast<QLineEdit*>(tc.Info["NAME"])->setText(QString::fromStdString(ti.name));
-                qobject_cast<QComboBox*>(tc.Info["TYPE"])->setCurrentText(QString::fromStdString(ti.type));
-                //QString textTypeType = qobject_cast<QComboBox*>(tc.Info["TYPE"])->currentText();
-                qobject_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString::fromStdString(ti.description));
-
-                QListWidget* listWidgetValues = qobject_cast<QListWidget*>(tc.Info["VALUES"]);
-                listWidgetValues->clear();
-                for (const auto& v : ti.values)
-                    listWidgetValues->addItem(QString::fromStdString(v.first) + " -> " + QString::fromStdString(v.second));
-
-                QListWidget* listWidgetIncludes = qobject_cast<QListWidget*>(tc.Info["INCLUDES"]);
-                listWidgetIncludes->clear();
-                for (const auto& v : ti.includes)
-                    listWidgetIncludes->addItem(QString::fromStdString(v));
-
-                QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
-                listWidget->clear();
-                for (const auto& pi : ti.parameters)
-                    listWidget->addItem(QString::fromStdString(pi.name));
-                if (listWidget->count() > 0)
-                    listWidget->setCurrentRow(0);
-            }
             //FillTypeTypeNames();
             FillPropertyTypeNames();
         }
@@ -1814,14 +1763,11 @@ void MainWindow::on_EditingFinished()
         QString oldName = type;
         QString newName = lineEdit->text();
 
-        for (const auto& ti : fileInfo_.types)
+        if (yaml::helper::get_type_info(fileInfo_, newName.toStdString()))
         {
-            if (QString::fromStdString(ti.name) == newName)
-            {
-                QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Тип с именем %1 уже существует").arg(newName));
-                lineEdit->setText(oldName);
-                return;
-            }
+            QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Тип с именем %1 уже существует").arg(newName));
+            lineEdit->setText(oldName);
+            return;
         }
 
         // Update controls
@@ -1836,34 +1782,6 @@ void MainWindow::on_EditingFinished()
 
         QString arrayOldName = QString("array<%1>").arg(oldName);
         QString arrayNewName = QString("array<%1>").arg(newName);
-
-
-        TabControls& tc_m = GetTabControls("Main");
-        QComboBox* t_m = qobject_cast<QComboBox*>(tc_m.Properties["TYPE"]);
-        if (t_m->currentText() == oldName)
-        {
-            t_m->setCurrentText(newName);
-        }
-        if (t_m->currentText() == arrayOldName)
-        {
-            t_m->setCurrentText(arrayNewName);
-        }
-
-        for (auto& t : fileInfo_.types)
-        {
-            TabControls& tc_t = GetTabControls(QString::fromStdString(t.name));
-            QComboBox* t_t = qobject_cast<QComboBox*>(tc_m.Properties["TYPE"]);
-            if (t_t->currentText() == oldName)
-            {
-                t_t->setCurrentText(newName);
-            }
-            if (t_t->currentText() == arrayOldName)
-            {
-                t_t->setCurrentText(arrayNewName);
-            }
-        }
-
-        RenameTabControls(oldName, newName);
 
         // Update fileInfo_
         for (auto& t : fileInfo_.types)
@@ -1905,6 +1823,48 @@ void MainWindow::on_EditingFinished()
             }
             break;
         }
+
+        FillPropertyTypeNames();
+
+        TabControls& tc_m = GetTabControls("Main");
+        QComboBox* t_m = qobject_cast<QComboBox*>(tc_m.Properties["TYPE"]);
+        const auto& pi_m = yaml::helper::get_parameter_info(fileInfo_, "Main", "TYPE");
+        t_m->setCurrentText(QString::fromStdString(pi_m->type));
+
+        for (auto& t : fileInfo_.types)
+        {
+            TabControls& tc_t = GetTabControls(QString::fromStdString(t.name));
+            QComboBox* t_t = qobject_cast<QComboBox*>(tc_m.Properties["TYPE"]);
+            const auto& pi_t = yaml::helper::get_parameter_info(fileInfo_, t.name, "TYPE");
+            t_t->setCurrentText(QString::fromStdString(pi_m->type));
+        }
+
+        //TabControls& tc_m = GetTabControls("Main");
+        //QComboBox* t_m = qobject_cast<QComboBox*>(tc_m.Properties["TYPE"]);
+        //if (t_m->currentText() == oldName)
+        //{
+        //    t_m->setCurrentText(newName);
+        //}
+        //if (t_m->currentText() == arrayOldName)
+        //{
+        //    t_m->setCurrentText(arrayNewName);
+        //}
+
+        //for (auto& t : fileInfo_.types)
+        //{
+        //    TabControls& tc_t = GetTabControls(QString::fromStdString(t.name));
+        //    QComboBox* t_t = qobject_cast<QComboBox*>(tc_m.Properties["TYPE"]);
+        //    if (t_t->currentText() == oldName)
+        //    {
+        //        t_t->setCurrentText(newName);
+        //    }
+        //    if (t_t->currentText() == arrayOldName)
+        //    {
+        //        t_t->setCurrentText(arrayNewName);
+        //    }
+        //}
+
+        RenameTabControls(oldName, newName);
     }
     else if (group == MainWindow::ControlsGroup::Properties && name == "NAME")
     {
@@ -2018,4 +1978,60 @@ void MainWindow::on_CurrentIndexChanged(int index)
     //    return;
 
     FillPropertyTypeNames();
+}
+
+void MainWindow::Update()
+{
+    UpdateMain();
+    for (const auto& type : yaml::helper::get_user_type_names(fileInfo_))
+        UpdateType(QString::fromStdString(type));
+}
+
+void MainWindow::UpdateMain()
+{
+    TabControls& tc = GetTabControls("Main");
+
+    qobject_cast<QLineEdit*>(tc.Info["ID"])->setText(QString::fromStdString(fileInfo_.info.id));
+    qobject_cast<QLineEdit*>(tc.Info["DISPLAY_NAME"])->setText(QString::fromStdString(fileInfo_.info.display_name));
+    qobject_cast<QLineEdit*>(tc.Info["CATEGORY"])->setText(QString::fromStdString(fileInfo_.info.category));
+    qobject_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString::fromStdString(fileInfo_.info.description));
+    qobject_cast<QLineEdit*>(tc.Info["PICTOGRAM"])->setText(QString::fromStdString(fileInfo_.info.pictogram));
+    qobject_cast<QLineEdit*>(tc.Info["HINT"])->setText(QString::fromStdString(fileInfo_.info.hint));
+    qobject_cast<QLineEdit*>(tc.Info["AUTHOR"])->setText(QString::fromStdString(fileInfo_.info.author));
+    qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setText(QString::fromStdString(fileInfo_.info.wiki));
+    qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setCursorPosition(0);
+
+    QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+    for (const auto& pi : fileInfo_.parameters)
+        listWidget->addItem(QString::fromStdString(pi.name));
+    if (listWidget->count() > 0)
+        listWidget->setCurrentRow(0);
+}
+
+void MainWindow::UpdateType(QString type)
+{
+    TabControls& tc = GetTabControls(type);
+    const auto& ti = yaml::helper::get_type_info(fileInfo_, type.toStdString());
+
+    qobject_cast<QLineEdit*>(tc.Info["NAME"])->setText(QString::fromStdString(ti->name));
+    qobject_cast<QComboBox*>(tc.Info["TYPE"])->setCurrentText(QString::fromStdString(ti->type));
+    //QString textTypeType = qobject_cast<QComboBox*>(tc.Info["TYPE"])->currentText();
+    qobject_cast<QPlainTextEdit*>(tc.Info["DESCRIPTION"])->setPlainText(QString::fromStdString(ti->description));
+
+    QListWidget* listWidgetValues = qobject_cast<QListWidget*>(tc.Info["VALUES"]);
+    listWidgetValues->clear();
+    for (const auto& v : ti->values)
+        listWidgetValues->addItem(QString::fromStdString(v.first) + " -> " + QString::fromStdString(v.second));
+
+    QListWidget* listWidgetIncludes = qobject_cast<QListWidget*>(tc.Info["INCLUDES"]);
+    listWidgetIncludes->clear();
+    for (const auto& v : ti->includes)
+        listWidgetIncludes->addItem(QString::fromStdString(v));
+
+    QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+    listWidget->clear();
+    for (const auto& pi : ti->parameters)
+        listWidget->addItem(QString::fromStdString(pi.name));
+    if (listWidget->count() > 0)
+        listWidget->setCurrentRow(0);
 }
