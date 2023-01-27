@@ -3,7 +3,6 @@
 
 #include <string>
 #include <vector>
-#include <QDebug>
 #include "yaml_parser_types.h"
 #include "yaml-cpp/yaml.h"
 
@@ -452,6 +451,61 @@ namespace yaml
 
             fi.types = std::move(sorted_types);
 
+            return true;
+        }
+
+        static bool rename_type(yaml::file_info& fi, const std::string& oldName, const std::string& newName)
+        {
+            std::string arrayOldName = "array<" + oldName + ">";
+            std::string arrayNewName = "array<" + newName + ">";
+
+            for (auto& t : fi.types)
+            {
+                if (t.name == oldName)
+                {
+                    t.name = newName;
+                    break;
+                }
+            }
+
+            for (auto& p : fi.parameters)
+            {
+                if (p.type == oldName)
+                {
+                    p.type = newName;
+                    break;
+                }
+                if (p.type == arrayOldName)
+                {
+                    p.type = arrayNewName;
+                    break;
+                }
+            }
+            for (auto& t : fi.types)
+            {
+                for (auto& p : t.parameters)
+                {
+                    if (p.type == oldName)
+                    {
+                        p.type = newName;
+                        break;
+                    }
+                    if (p.type == arrayOldName)
+                    {
+                        p.type = arrayNewName;
+                        break;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        static bool rename_property(yaml::file_info& fi, const std::string& type, const std::string& oldName, const std::string& newName)
+        {
+            auto ppi = get_parameter_info(fi, type, oldName);
+            if (!ppi) return false;
+            ppi->name = newName;
             return true;
         }
 	};

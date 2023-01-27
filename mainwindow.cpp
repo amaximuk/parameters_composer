@@ -97,7 +97,7 @@ QMap<QString, QObject*>& MainWindow::GetControls(QString type, ControlsGroup gro
     }
 }
 
-bool MainWindow::RenameTabControls(QString oldType, QString newType)
+bool MainWindow::RenameTabControlsType(QString oldType, QString newType)
 {
     TabControls& tc = GetTabControls(oldType);
     
@@ -110,7 +110,6 @@ bool MainWindow::RenameTabControls(QString oldType, QString newType)
     for (auto& x : tc.Properties)
         x->setProperty("type", newType);
  
-
     return true;
 }
 
@@ -795,6 +794,45 @@ bool MainWindow::FillPropertyTypeNames()
         for (const auto& s : yaml::helper::get_property_type_names(fileInfo_))
             comboBoxPropertyType->addItem(QString::fromStdString(s));
         comboBoxPropertyType->setCurrentText(textPropertyType);
+    }
+
+    return true;
+}
+
+bool MainWindow::RenamePropertyTypeNames(QString oldName, QString newName)
+{
+    TabControls& tcm = GetTabControls("Main");
+
+    QString arrayOldName = QString("array<%1>").arg(oldName);
+    QString arrayNewName = QString("array<%1>").arg(newName);
+
+    QComboBox* comboBoxMain = qobject_cast<QComboBox*>(tcm.Properties["TYPE"]);
+    QString textMain = comboBoxMain->currentText();
+    comboBoxMain->clear();
+    for (const auto& s : yaml::helper::get_property_type_names(fileInfo_))
+        comboBoxMain->addItem(QString::fromStdString(s));
+    if (textMain == oldName)
+        comboBoxMain->setCurrentText(newName);
+    else if (textMain == arrayOldName)
+        comboBoxMain->setCurrentText(arrayNewName);
+    else
+        comboBoxMain->setCurrentText(textMain);
+
+    for (int i = 0; i < tabs_.size(); i++)
+    {
+        TabControls& tct = tabs_[i];
+
+        QComboBox* comboBoxPropertyType = qobject_cast<QComboBox*>(tct.Properties["TYPE"]);
+        QString textPropertyType = comboBoxPropertyType->currentText();
+        comboBoxPropertyType->clear();
+        for (const auto& s : yaml::helper::get_property_type_names(fileInfo_))
+            comboBoxPropertyType->addItem(QString::fromStdString(s));
+        if (textPropertyType == oldName)
+            comboBoxPropertyType->setCurrentText(newName);
+        if (textPropertyType == arrayOldName)
+            comboBoxPropertyType->setCurrentText(arrayNewName);
+        else
+            comboBoxPropertyType->setCurrentText(textPropertyType);
     }
 
     return true;
@@ -1780,91 +1818,15 @@ void MainWindow::on_EditingFinished()
             }
         }
 
-        QString arrayOldName = QString("array<%1>").arg(oldName);
-        QString arrayNewName = QString("array<%1>").arg(newName);
-
         // Update fileInfo_
-        for (auto& t : fileInfo_.types)
-        {
-            if (QString::fromStdString(t.name) == type)
-            {
-                t.name = newName.toStdString();
-                break;
-            }
-        }
+        if (!yaml::helper::rename_type(fileInfo_, oldName.toStdString(), newName.toStdString()))
+            return;
 
-        for (auto& p : fileInfo_.parameters)
-        {
-            if (QString::fromStdString(p.type) == oldName)
-            {
-                p.type = newName.toStdString();
-                break;
-            }
-            if (QString::fromStdString(p.type) == arrayOldName)
-            {
-                p.type = arrayNewName.toStdString();
-                break;
-            }
-        }
-        for (auto& t : fileInfo_.types)
-        {
-            for (auto& p : t.parameters)
-            {
-                if (QString::fromStdString(p.type) == oldName)
-                {
-                    p.type = newName.toStdString();
-                    break;
-                }
-                if (QString::fromStdString(p.type) == arrayOldName)
-                {
-                    p.type = arrayNewName.toStdString();
-                    break;
-                }
-            }
-            break;
-        }
+        // Update controls
+        RenamePropertyTypeNames(oldName, newName);
 
-        FillPropertyTypeNames();
-
-        TabControls& tc_m = GetTabControls("Main");
-        QComboBox* t_m = qobject_cast<QComboBox*>(tc_m.Properties["TYPE"]);
-        const auto& pi_m = yaml::helper::get_parameter_info(fileInfo_, "Main", "TYPE");
-        t_m->setCurrentText(QString::fromStdString(pi_m->type));
-
-        for (auto& t : fileInfo_.types)
-        {
-            TabControls& tc_t = GetTabControls(QString::fromStdString(t.name));
-            QComboBox* t_t = qobject_cast<QComboBox*>(tc_m.Properties["TYPE"]);
-            const auto& pi_t = yaml::helper::get_parameter_info(fileInfo_, t.name, "TYPE");
-            t_t->setCurrentText(QString::fromStdString(pi_m->type));
-        }
-
-        //TabControls& tc_m = GetTabControls("Main");
-        //QComboBox* t_m = qobject_cast<QComboBox*>(tc_m.Properties["TYPE"]);
-        //if (t_m->currentText() == oldName)
-        //{
-        //    t_m->setCurrentText(newName);
-        //}
-        //if (t_m->currentText() == arrayOldName)
-        //{
-        //    t_m->setCurrentText(arrayNewName);
-        //}
-
-        //for (auto& t : fileInfo_.types)
-        //{
-        //    TabControls& tc_t = GetTabControls(QString::fromStdString(t.name));
-        //    QComboBox* t_t = qobject_cast<QComboBox*>(tc_m.Properties["TYPE"]);
-        //    if (t_t->currentText() == oldName)
-        //    {
-        //        t_t->setCurrentText(newName);
-        //    }
-        //    if (t_t->currentText() == arrayOldName)
-        //    {
-        //        t_t->setCurrentText(arrayNewName);
-        //    }
-        //}
-
-        RenameTabControls(oldName, newName);
+        // Update controls
+        RenameTabControlsType(oldName, newName);
     }
     else if (group == MainWindow::ControlsGroup::Properties && name == "NAME")
     {
@@ -1875,6 +1837,7 @@ void MainWindow::on_EditingFinished()
         QString oldName = listWidget->selectedItems()[0]->text();
         QString newName = lineEdit->text();
 
+        // Update controls
         for (int i = 0; i < listWidget->count(); ++i)
         {
             if (listWidget->item(i)->text() == newName && listWidget->selectedItems()[0] != listWidget->item(i))
@@ -1885,38 +1848,11 @@ void MainWindow::on_EditingFinished()
                 return;
             }
         }
-
         listWidget->selectedItems()[0]->setText(newName);
 
-        if (type == "Main")
-        {
-            for (auto& p : fileInfo_.parameters)
-            {
-                if (QString::fromStdString(p.name) == oldName)
-                {
-                    p.name = newName.toStdString();
-                    break;
-                }
-            }
-        }
-        else
-        {
-            for (auto& t : fileInfo_.types)
-            {
-                if (QString::fromStdString(t.name) == type)
-                {
-                    for (auto& p : t.parameters)
-                    {
-                        if (QString::fromStdString(p.name) == oldName)
-                        {
-                            p.name = newName.toStdString();
-                            break;
-                        }
-                    }
-                    break;
-                }
-            }
-        }
+        // Update fileInfo_
+        if (!yaml::helper::rename_property(fileInfo_, type.toStdString(), oldName.toStdString(), newName.toStdString()))
+            return;
     }
     else if (group == MainWindow::ControlsGroup::Properties && name == "TYPE")
     {

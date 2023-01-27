@@ -39,12 +39,6 @@ public:
 private:
     void closeEvent(QCloseEvent* event) override;
 
-private:
-    TabControls& GetTabControls(QString type);
-    bool IsTabControlsExists(QString type);
-    QMap<QString, QObject*>& GetControls(QString type, ControlsGroup group);
-    bool RenameTabControls(QString oldType, QString newType);
-
 private slots:
     void on_NewFile_action();
     void on_OpenFile_action();
@@ -82,6 +76,15 @@ private:
     
     bool HaveCurrentParameter(QString type);
     bool FillPropertyTypeNames();
+    bool RenamePropertyTypeNames(QString oldName, QString newName);
+
+    TabControls& GetTabControls(QString type);
+    bool IsTabControlsExists(QString type);
+    QMap<QString, QObject*>& GetControls(QString type, ControlsGroup group);
+    bool RenameTabControlsType(QString oldType, QString newType);
+
+    // !!!!!!!!!!!!!!!!!!!!!
+    // INCLUDES вынести в общую часть, т.к. они могут понадобиться для DEFAULT или RESTRICTION любого параметра
     //bool FillTypeTypeNames();
 
     void Update();
