@@ -31,6 +31,8 @@ private:
     QString currentFileName_;
     parameters_compiler::file_info fileInfo_;
     QList<TabControls> tabs_;
+    bool is_json_;
+    bool modified_;
 
 public:
     MainWindow(QWidget *parent = nullptr);
@@ -59,12 +61,11 @@ private:
     QWidget* CreatePropertiesWidget(QString type);
     QWidget* CreateListControlWidget(int buttonSize, QString type, ControlsGroup group, QString name);
 
-    void AddLineEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
+    void AddLineEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group, bool bold);
     void AddPlainTextEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
     void AddCheckBoxProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
     void AddPropertySubheader(QGridLayout* gridLayout, QString text, QString style, int index);
     void AddListProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
-    void AddLineEditRequiredProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
     void AddGroupWidget(QWidget* groupWidget, QString name, QString type, ControlsGroup group);
     void AddComboBoxPropertyType(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
     void AddComboBoxTypeType(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
@@ -93,11 +94,16 @@ private:
     void Update();
     void UpdateMain();
     void UpdateType(QString type);
+    void UpdateWindowTitle();
+
+    void SaveAs();
 
 private slots:
     void on_ListControlClicked();
     void on_CurrentItemChanged(QListWidgetItem *current, QListWidgetItem *previous);
     void on_EditingFinished();
     void on_CurrentIndexChanged(int index);
+    void on_TextChanged();
+    void on_StateChanged(int state);
 };
 #endif // MAINWINDOW_H

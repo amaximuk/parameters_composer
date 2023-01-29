@@ -28,11 +28,13 @@ MainWindow::MainWindow(QWidget *parent)
 {
     currentFileName_ = "";
     fileInfo_ = {};
+    modified_ = false;
+    is_json_ = false;
 
     CreateUi();
 
     setWindowIcon(QIcon(":/images/parameters.png"));
-    setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
+    UpdateWindowTitle();
 }
 
 MainWindow::~MainWindow()
@@ -41,12 +43,19 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
-    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-        QString::fromLocal8Bit("Вы действительно хотите выйти?\nВсе несохраненные изменения будут потеряны!"), QMessageBox::No | QMessageBox::Yes);
-    if (resBtn == QMessageBox::Yes)
-        event->accept();
+    if (modified_)
+    {
+        QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+            QString::fromLocal8Bit("Вы действительно хотите выйти?\nВсе несохраненные изменения будут потеряны!"), QMessageBox::No | QMessageBox::Yes);
+        if (resBtn == QMessageBox::Yes)
+            event->accept();
+        else
+            event->ignore();
+    }
     else
-        event->ignore();
+    {
+        event->accept();
+    }
 }
 
 MainWindow::TabControls& MainWindow::GetTabControls(QString type)
@@ -116,10 +125,13 @@ bool MainWindow::RenameTabControlsType(QString oldType, QString newType)
 
 void MainWindow::on_NewFile_action()
 {
-    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-        QString::fromLocal8Bit("Вы действительно хотите создать новый файл?\nВсе несохраненные изменения будут потеряны!"), QMessageBox::No | QMessageBox::Yes);
-    if (resBtn != QMessageBox::Yes)
-        return;
+    if (modified_)
+    {
+        QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+            QString::fromLocal8Bit("Вы действительно хотите создать новый файл?\nВсе несохраненные изменения будут потеряны!"), QMessageBox::No | QMessageBox::Yes);
+        if (resBtn != QMessageBox::Yes)
+            return;
+    }
 
     while (qobject_cast<QTabWidget*>(centralWidget())->count() > 0)
         qobject_cast<QTabWidget*>(centralWidget())->removeTab(0);
@@ -130,23 +142,34 @@ void MainWindow::on_NewFile_action()
     fileInfo_ = {};
 
     currentFileName_ = "";
-    setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
+    modified_ = false;
+    UpdateWindowTitle();
 }
 
 void MainWindow::on_Quit_action()
 {
-    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-        QString::fromLocal8Bit("Вы действительно хотите выйти?\nВсе несохраненные изменения будут потеряны!"), QMessageBox::No | QMessageBox::Yes);
-    if (resBtn == QMessageBox::Yes)
+    if (modified_)
+    {
+        QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+            QString::fromLocal8Bit("Вы действительно хотите выйти?\nВсе несохраненные изменения будут потеряны!"), QMessageBox::No | QMessageBox::Yes);
+        if (resBtn == QMessageBox::Yes)
+            QApplication::quit();
+    }
+    else
+    {
         QApplication::quit();
+    }
 }
 
 void MainWindow::on_OpenFile_action()
 {
-    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-        QString::fromLocal8Bit("Вы действительно хотите открыть файл?\nВсе несохраненные изменения будут потеряны!"), QMessageBox::No | QMessageBox::Yes);
-    if (resBtn != QMessageBox::Yes)
-        return;
+    if (modified_)
+    {
+        QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+            QString::fromLocal8Bit("Вы действительно хотите открыть файл?\nВсе несохраненные изменения будут потеряны!"), QMessageBox::No | QMessageBox::Yes);
+        if (resBtn != QMessageBox::Yes)
+            return;
+    }
 
     QFileDialog dialog(this);
     dialog.setNameFilters({ "Parameters Compiler YAML Files (*.yml *.yaml)", "Parameters Compiler JSON Files (*.json)" });
@@ -156,66 +179,58 @@ void MainWindow::on_OpenFile_action()
     if (dialog.exec())
         fileNames = dialog.selectedFiles();
 
-    if (fileNames.size() > 0)
-    {
-        qDebug() << fileNames[0];
-        parameters_compiler::file_info fi{};
-        if (yaml::parser::parse(fileNames[0].toStdString(), fi))
-        {
-            while (qobject_cast<QTabWidget*>(centralWidget())->count() > 1)
-                qobject_cast<QTabWidget*>(centralWidget())->removeTab(1);
-
-            {
-                TabControls& tc = GetTabControls("Main");
-                QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
-                listWidget->clear();
-            }
-
-            fileInfo_ = fi;
-            currentFileName_ = fileNames[0];
-            setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
-
-            UpdateMain();
-            for (const auto& type : parameters_compiler::helper::get_user_type_names(fileInfo_))
-            {
-                QWidget* widgetTabType = CreateTypeTabWidget(QString::fromStdString(type));
-                qobject_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, QString::fromStdString(type));
-                UpdateType(QString::fromStdString(type));
-            }
-
-            //FillTypeTypeNames();
-            FillPropertyTypeNames();
-        }
-        else
-        {
-            QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Ошибка разбора файла %1").arg(fileNames[0]));
-        }
-    }
-}
-void MainWindow::on_SaveFile_action()
-{
-    QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
-        QString::fromLocal8Bit("Вы действительно хотите сохранить файл?\nФайл будет перезаписан!"), QMessageBox::No | QMessageBox::Yes);
-    if (resBtn != QMessageBox::Yes)
+    if (fileNames.size() == 0)
         return;
 
-    QStringList fileNames;
+    qDebug() << fileNames[0];
+    parameters_compiler::file_info fi{};
+    if (!yaml::parser::parse(fileNames[0].toStdString(), fi))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Ошибка разбора файла %1").arg(fileNames[0]));
+        return;
+    }
+
+    while (qobject_cast<QTabWidget*>(centralWidget())->count() > 1)
+        qobject_cast<QTabWidget*>(centralWidget())->removeTab(1);
+
+    TabControls& tc = GetTabControls("Main");
+    QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+    listWidget->clear();
+
+    fileInfo_ = fi;
+
+    UpdateMain();
+    for (const auto& type : parameters_compiler::helper::get_user_type_names(fileInfo_))
+    {
+        QWidget* widgetTabType = CreateTypeTabWidget(QString::fromStdString(type));
+        qobject_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, QString::fromStdString(type));
+        UpdateType(QString::fromStdString(type));
+    }
+
+    FillPropertyTypeNames();
+
+    currentFileName_ = fileNames[0];
+    modified_ = false;
+    UpdateWindowTitle();
+}
+
+void MainWindow::on_SaveFile_action()
+{
+    if (!modified_)
+        return;
+
     if (currentFileName_ == "")
     {
-        QFileDialog dialog(this);
-        dialog.setNameFilters({ "Parameters Compiler YAML Files (*.yml *.yaml)", "Parameters Compiler JSON Files (*.json)" });
-        dialog.setAcceptMode(QFileDialog::AcceptSave);
-        dialog.setDefaultSuffix("yml");
-
-        if (dialog.exec())
-            fileNames = dialog.selectedFiles();
+        SaveAs();
     }
     else
-        fileNames.push_back(currentFileName_);
-
-    if (fileNames.size() > 0)
     {
-        qDebug() << fileNames[0];
+        qDebug() << currentFileName_;
+
+        QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+            QString::fromLocal8Bit("Вы действительно хотите сохранить файл?\nФайл будет перезаписан!"), QMessageBox::No | QMessageBox::Yes);
+        if (resBtn != QMessageBox::Yes)
+            return;
 
         if (!ReadCurrentFileInfo())
             return;
@@ -233,109 +248,59 @@ void MainWindow::on_SaveFile_action()
             return;
         }
 
-        if (!yaml::writer::write(fileNames[0].toStdString(), fileInfo_))
-            return;
-        
-        //parameters_compiler::Emitter emitter;
-        //if (!WriteCurrent(emitter))
-        //    return;
+        if (is_json_)
+        {
+            if (!json::writer::write(currentFileName_.toStdString(), fileInfo_))
+                return;
+        }
+        else
+        {
+            if (!yaml::writer::write(currentFileName_.toStdString(), fileInfo_))
+                return;
+        }
 
-        //QFile file(fileNames[0]);
-        //if (file.open(QIODevice::WriteOnly))
-        //    file.write(emitter.c_str());
-
-        currentFileName_ = fileNames[0];
-        setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
+        modified_ = false;
+        UpdateWindowTitle();
     }
 }
 
 void MainWindow::on_SaveAsFile_action()
 {
-    QFileDialog dialog(this);
-    dialog.setNameFilters({ "Parameters Compiler YAML Files (*.yml *.yaml)", "Parameters Compiler JSON Files (*.json)" });
-    dialog.setAcceptMode(QFileDialog::AcceptSave);
-    dialog.setDefaultSuffix("yml");
-
-    QStringList fileNames;
-    if (dialog.exec())
-        fileNames = dialog.selectedFiles();
-
-    QString selectedFilter = dialog.selectedNameFilter();
-
-    if (fileNames.size() > 0)
-    {
-        qDebug() << fileNames[0];
-        qDebug() << selectedFilter;
-
-        if (!ReadCurrentFileInfo())
-            return;
-
-        std::string message;
-        if (!parameters_compiler::helper::validate(fileInfo_, message))
-        {
-            QMessageBox::critical(this, "Validate error", QString::fromLocal8Bit(message.c_str()));
-            return;
-        }
-
-        if (!parameters_compiler::helper::rearrange_types(fileInfo_))
-        {
-            QMessageBox::critical(this, "Rearrange error", QString::fromLocal8Bit("Возможно, петля в типах"));
-            return;
-        }
-
-        if (selectedFilter == "Parameters Compiler JSON Files (*.json)")
-        {
-            if (!json::writer::write(fileNames[0].toStdString(), fileInfo_))
-                return;
-        }
-        else
-        {
-            if (!yaml::writer::write(fileNames[0].toStdString(), fileInfo_))
-                return;
-        }
-
-        //parameters_compiler::Emitter emitter;
-        //if (!WriteCurrent(emitter))
-        //    return;
-
-        //QFile file(fileNames[0]);
-        //if (file.open(QIODevice::WriteOnly))
-        //    file.write(emitter.c_str());
-
-        currentFileName_ = fileNames[0];
-        setWindowTitle("parameters_composer - " + currentFileName_ == "" ? "Untitled" : currentFileName_);
-    }
+    SaveAs();
 }
 
 void MainWindow::on_AddType_action()
 {
     bool ok;
     QString text = QInputDialog::getText(this, "Add type", QString::fromLocal8Bit("Имя типа:"), QLineEdit::Normal, "", &ok);
-    if (ok && !text.isEmpty())
+    if (!ok || text.isEmpty())
+        return;
+
+    for (const auto& ti : fileInfo_.types)
     {
-        for (const auto& ti : fileInfo_.types)
+        if (QString::fromStdString(ti.name) == text)
         {
-            if (QString::fromStdString(ti.name) == text)
-            {
-                QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Тип с именем %1 уже существует").arg(text));
-                return;
-            }
+            QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Тип с именем %1 уже существует").arg(text));
+            return;
         }
-
-        QWidget* widgetTabType = CreateTypeTabWidget(text);
-        qobject_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, text);
-        qobject_cast<QTabWidget*>(centralWidget())->setCurrentWidget(widgetTabType);
-
-        TabControls& tc = GetTabControls(text);
-        qobject_cast<QLineEdit*>(tc.Info["NAME"])->setText(text);
-
-        parameters_compiler::type_info ti{};
-        ti.name = text.toStdString();
-        fileInfo_.types.push_back(ti);
-
-        //FillTypeTypeNames();
-        FillPropertyTypeNames();
     }
+
+    QWidget* widgetTabType = CreateTypeTabWidget(text);
+    qobject_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, text);
+    qobject_cast<QTabWidget*>(centralWidget())->setCurrentWidget(widgetTabType);
+
+    TabControls& tc = GetTabControls(text);
+    qobject_cast<QLineEdit*>(tc.Info["NAME"])->setText(text);
+
+    parameters_compiler::type_info ti{};
+    ti.name = text.toStdString();
+    fileInfo_.types.push_back(ti);
+
+    //FillTypeTypeNames();
+    FillPropertyTypeNames();
+
+    modified_ = true;
+    UpdateWindowTitle();
 }
 
 void MainWindow::on_RemoveType_action()
@@ -391,8 +356,10 @@ void MainWindow::on_RemoveType_action()
     auto it = std::find_if(fileInfo_.types.cbegin(), fileInfo_.types.cend(), [name](auto& t) { if (t.name == name.toStdString()) return true; else return false; });
     fileInfo_.types.erase(it);
 
-    //FillTypeTypeNames();
     FillPropertyTypeNames();
+
+    modified_ = true;
+    UpdateWindowTitle();
 }
 
 void MainWindow::CreateMenu()
@@ -492,14 +459,14 @@ QWidget* MainWindow::CreateMainTabInfoWidget()
 
     int index = 0;
     AddPropertySubheader(gridLayoutInfo, "INFO", "font-weight: bold; font-size: 14px", index++);
-    AddLineEditRequiredProperty(gridLayoutInfo, "ID", index++, type, ControlsGroup::Info);
-    AddLineEditProperty(gridLayoutInfo, "DISPLAY_NAME", index++, type, ControlsGroup::Info);
+    AddLineEditProperty(gridLayoutInfo, "ID", index++, type, ControlsGroup::Info, true);
+    AddLineEditProperty(gridLayoutInfo, "DISPLAY_NAME", index++, type, ControlsGroup::Info, false);
     AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++, type, ControlsGroup::Info);
-    AddLineEditProperty(gridLayoutInfo, "CATEGORY", index++, type, ControlsGroup::Info);
-    AddLineEditProperty(gridLayoutInfo, "PICTOGRAM", index++, type, ControlsGroup::Info);
-    AddLineEditProperty(gridLayoutInfo, "HINT", index++, type, ControlsGroup::Info);
-    AddLineEditProperty(gridLayoutInfo, "AUTHOR", index++, type, ControlsGroup::Info);
-    AddLineEditProperty(gridLayoutInfo, "WIKI", index++, type, ControlsGroup::Info);
+    AddLineEditProperty(gridLayoutInfo, "CATEGORY", index++, type, ControlsGroup::Info, false);
+    AddLineEditProperty(gridLayoutInfo, "PICTOGRAM", index++, type, ControlsGroup::Info, false);
+    AddLineEditProperty(gridLayoutInfo, "HINT", index++, type, ControlsGroup::Info, false);
+    AddLineEditProperty(gridLayoutInfo, "AUTHOR", index++, type, ControlsGroup::Info, false);
+    AddLineEditProperty(gridLayoutInfo, "WIKI", index++, type, ControlsGroup::Info, false);
 
     QWidget* widgetSplitterInfo = new QWidget;
     widgetSplitterInfo->setLayout(gridLayoutInfo);
@@ -535,10 +502,20 @@ QWidget* MainWindow::CreatePropertyListWidget(QString type)
     return widgetSplitterPropertyList;
 }
 
-void MainWindow::AddLineEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group)
+void MainWindow::AddLineEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, MainWindow::ControlsGroup group, bool is_bold)
 {
-    gridLayout->addWidget(new QLabel(name), index, 0);
+    QLabel* label = new QLabel;
+    if (is_bold)
+        label->setStyleSheet("font-weight: bold");
+    label->setText(name);
+
+    gridLayout->addWidget(label, index, 0);
     QLineEdit* lineEdit = new QLineEdit;
+    lineEdit->setProperty("name", name);
+    lineEdit->setProperty("group", static_cast<int>(group));
+    lineEdit->setProperty("type", type);
+
+    connect(lineEdit, &QLineEdit::editingFinished, this, &MainWindow::on_EditingFinished);
     gridLayout->addWidget(lineEdit, index, 1);
 
     auto& tc = GetControls(type, group);
@@ -549,6 +526,11 @@ void MainWindow::AddPlainTextEditProperty(QGridLayout* gridLayout, QString name,
 {
     gridLayout->addWidget(new QLabel(name), index, 0);
     QPlainTextEdit* plainTextEdit = new QPlainTextEdit;
+    plainTextEdit->setProperty("name", name);
+    plainTextEdit->setProperty("group", static_cast<int>(group));
+    plainTextEdit->setProperty("type", type);
+
+    connect(plainTextEdit, &QPlainTextEdit::textChanged, this, &MainWindow::on_TextChanged);
     gridLayout->addWidget(plainTextEdit, index, 1);
 
     auto& tc = GetControls(type, group);
@@ -559,6 +541,11 @@ void MainWindow::AddCheckBoxProperty(QGridLayout* gridLayout, QString name, int 
 {
     gridLayout->addWidget(new QLabel(name), index, 0);
     QCheckBox* checkBox = new QCheckBox;
+    checkBox->setProperty("name", name);
+    checkBox->setProperty("group", static_cast<int>(group));
+    checkBox->setProperty("type", type);
+
+    connect(checkBox, &QCheckBox::stateChanged, this, &MainWindow::on_StateChanged);
     gridLayout->addWidget(checkBox, index, 1);
 
     auto& tc = GetControls(type, group);
@@ -573,9 +560,6 @@ void MainWindow::AddPropertySubheader(QGridLayout* gridLayout, QString text, QSt
     gridLayout->addWidget(label, index, 0, 1, 2, Qt::AlignCenter);
 }
 
-//QComboBox
-
-//void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int index, QString tabId, QString listControlId, QMap<QString, QObject*>& mapControls, QString type)
 void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group)
 {
     QWidget* widgetPropertiesRestrictionsSetButtons = CreateListControlWidget(24, type, group, name);
@@ -592,26 +576,6 @@ void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int inde
 
     auto& tc = GetControls(type, group);
     tc[name] = listWidget;
-}
-
-void MainWindow::AddLineEditRequiredProperty(QGridLayout* gridLayout, QString name, int index, QString type, MainWindow::ControlsGroup group)
-{
-    QLabel* label = new QLabel;
-    label->setStyleSheet("font-weight: bold");
-    label->setText(name);
-
-    gridLayout->addWidget(label, index, 0);
-    QLineEdit* lineEdit = new QLineEdit;
-    lineEdit->setProperty("name", name);
-    lineEdit->setProperty("group", static_cast<int>(group));
-    lineEdit->setProperty("type", type);
-    
-    //connect(lineEdit, &QLineEdit::editingFinished, this, std::bind(&MainWindow::OnEditingFinished, this, type, group, name));
-    connect(lineEdit, &QLineEdit::editingFinished, this, &MainWindow::on_EditingFinished);
-    gridLayout->addWidget(lineEdit, index, 1);
-
-    auto& tc = GetControls(type, group);
-    tc[name] = lineEdit;
 }
 
 void MainWindow::AddComboBoxPropertyType(QGridLayout* gridLayout, QString name, int index, QString type, MainWindow::ControlsGroup group)
@@ -850,48 +814,31 @@ bool MainWindow::RenamePropertyTypeNames(QString oldName, QString newName)
     return true;
 }
 
-//bool MainWindow::FillTypeTypeNames()
-//{
-//    for (const auto& type : parameters_compiler::helper::get_user_type_names(fileInfo_))
-//    {
-//        TabControls& tct = GetTabControls(QString::fromStdString(type));
-//
-//        QComboBox* comboBoxTypeType = qobject_cast<QComboBox*>(tct.Info["TYPE"]);
-//        QString textTypeType = comboBoxTypeType->currentText();
-//        comboBoxTypeType->clear();
-//        for (const auto& s : parameters_compiler::helper::get_type_type_names())
-//            comboBoxTypeType->addItem(QString::fromStdString(s));
-//        comboBoxTypeType->setCurrentText(textTypeType);
-//    }
-//
-//    return true;
-//}
-
 QWidget* MainWindow::CreatePropertiesWidget(QString type)
 {
     QGridLayout* gridLayoutProperties = new QGridLayout;
 
     int index = 0;
-    AddLineEditRequiredProperty(gridLayoutProperties, "NAME", index++, type, MainWindow::ControlsGroup::Properties);
+    AddLineEditProperty(gridLayoutProperties, "NAME", index++, type, MainWindow::ControlsGroup::Properties, true);
     AddComboBoxPropertyType(gridLayoutProperties, "TYPE", index++, type, MainWindow::ControlsGroup::Properties);
-    AddLineEditProperty(gridLayoutProperties, "DISPLAY_NAME", index++, type, MainWindow::ControlsGroup::Properties);
+    AddLineEditProperty(gridLayoutProperties, "DISPLAY_NAME", index++, type, MainWindow::ControlsGroup::Properties, false);
     AddPlainTextEditProperty(gridLayoutProperties, "DESCRIPTION", index++, type, MainWindow::ControlsGroup::Properties);
     AddCheckBoxProperty(gridLayoutProperties, "REQUIRED", index++, type, MainWindow::ControlsGroup::Properties);
-    AddLineEditProperty(gridLayoutProperties, "DEFAULT", index++, type, MainWindow::ControlsGroup::Properties);
-    AddLineEditProperty(gridLayoutProperties, "HINT", index++, type, MainWindow::ControlsGroup::Properties);
+    AddLineEditProperty(gridLayoutProperties, "DEFAULT", index++, type, MainWindow::ControlsGroup::Properties, false);
+    AddLineEditProperty(gridLayoutProperties, "HINT", index++, type, MainWindow::ControlsGroup::Properties, false);
     AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (base)", "font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutProperties, "MIN", index++, type, MainWindow::ControlsGroup::Properties);
-    AddLineEditProperty(gridLayoutProperties, "MAX", index++, type, MainWindow::ControlsGroup::Properties);
+    AddLineEditProperty(gridLayoutProperties, "MIN", index++, type, MainWindow::ControlsGroup::Properties, false);
+    AddLineEditProperty(gridLayoutProperties, "MAX", index++, type, MainWindow::ControlsGroup::Properties, false);
     AddListProperty(gridLayoutProperties, "SET", index++, type, MainWindow::ControlsGroup::Properties);
     AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (array)", "font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutProperties, "MIN_COUNT", index++, type, MainWindow::ControlsGroup::Properties);
-    AddLineEditProperty(gridLayoutProperties, "MAX_COUNT", index++, type, MainWindow::ControlsGroup::Properties);
+    AddLineEditProperty(gridLayoutProperties, "MIN_COUNT", index++, type, MainWindow::ControlsGroup::Properties, false);
+    AddLineEditProperty(gridLayoutProperties, "MAX_COUNT", index++, type, MainWindow::ControlsGroup::Properties, false);
     AddListProperty(gridLayoutProperties, "SET_COUNT", index++, type, MainWindow::ControlsGroup::Properties);
     AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (unit)", "font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutProperties, "CATEGORY", index++, type, MainWindow::ControlsGroup::Properties);
+    AddLineEditProperty(gridLayoutProperties, "CATEGORY", index++, type, MainWindow::ControlsGroup::Properties, false);
     AddListProperty(gridLayoutProperties, "IDS", index++, type, MainWindow::ControlsGroup::Properties);
     AddPropertySubheader(gridLayoutProperties, "RESTRICTIONS (path)", "font-size: 14px", index++);
-    AddLineEditProperty(gridLayoutProperties, "MAX_LENGTH", index++, type, MainWindow::ControlsGroup::Properties);
+    AddLineEditProperty(gridLayoutProperties, "MAX_LENGTH", index++, type, MainWindow::ControlsGroup::Properties, false);
 
     gridLayoutProperties->setRowStretch(gridLayoutProperties->rowCount(), 1);
 
@@ -921,7 +868,6 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListAdd->setProperty("action", "add");
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListAdd);
     connect(toolButtonPropertyListAdd, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
-    //connect(toolButtonPropertyListAdd, &QToolButton::clicked, this, std::bind(&MainWindow::on_toolButton_name_clicked, this, QString("Knopka")));
 
     QToolButton* toolButtonPropertyListRemove = new QToolButton;
     toolButtonPropertyListRemove->setFixedSize(buttonSize, buttonSize);
@@ -999,7 +945,7 @@ QWidget* MainWindow::CreateTypeTabInfoWidget(QString type)
 
     int index = 0;
     AddPropertySubheader(gridLayoutInfo, "TYPES", "font-weight: bold; font-size: 14px", index++);
-    AddLineEditRequiredProperty(gridLayoutInfo, "NAME", index++, type, ControlsGroup::Info);
+    AddLineEditProperty(gridLayoutInfo, "NAME", index++, type, ControlsGroup::Info, false);
     AddComboBoxTypeType(gridLayoutInfo, "TYPE", index++, type, ControlsGroup::Info);
     AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++, type, ControlsGroup::Info);
     AddListProperty(gridLayoutInfo, "VALUES", index++, type, ControlsGroup::Info);
@@ -1049,6 +995,9 @@ void MainWindow::on_ListControlClicked()
 
         // Update
         listWidget->setCurrentRow(listWidget->count() - 1);
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::PropertyList && name == "PROPERTIES" && action == "remove")
     {
@@ -1070,6 +1019,9 @@ void MainWindow::on_ListControlClicked()
         // Remove from fileInfo_
         if (!parameters_compiler::helper::remove_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString()))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::PropertyList && name == "PROPERTIES" && action == "up")
     {
@@ -1092,6 +1044,9 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString(), true))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::PropertyList && name == "PROPERTIES" && action == "down")
     {
@@ -1114,6 +1069,9 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString(), false))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Info && name == "VALUES" && action == "add")
     {
@@ -1144,6 +1102,9 @@ void MainWindow::on_ListControlClicked()
 
         // Update
         listWidget->setCurrentRow(listWidget->count() - 1);
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Info && name == "VALUES" && action == "remove")
     {
@@ -1168,6 +1129,9 @@ void MainWindow::on_ListControlClicked()
             return;
         if (!parameters_compiler::helper::remove_info_value(fileInfo_, type.toStdString(), s[0].toStdString()))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Info && name == "VALUES" && action == "up")
     {
@@ -1193,6 +1157,9 @@ void MainWindow::on_ListControlClicked()
             return;
         if (!parameters_compiler::helper::move_info_value(fileInfo_, type.toStdString(), s[0].toStdString(), true))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Info && name == "VALUES" && action == "down")
     {
@@ -1218,6 +1185,9 @@ void MainWindow::on_ListControlClicked()
             return;
         if (!parameters_compiler::helper::move_info_value(fileInfo_, type.toStdString(), s[0].toStdString(), false))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Info && name == "INCLUDES" && action == "add")
     {
@@ -1244,6 +1214,9 @@ void MainWindow::on_ListControlClicked()
 
         // Update
         listWidget->setCurrentRow(listWidget->count() - 1);
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Info && name == "INCLUDES" && action == "remove")
     {
@@ -1265,6 +1238,9 @@ void MainWindow::on_ListControlClicked()
         // Remove from fileInfo_
         if (!parameters_compiler::helper::remove_info_include(fileInfo_, type.toStdString(), propertyName.toStdString()))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Info && name == "INCLUDES" && action == "up")
     {
@@ -1287,6 +1263,9 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_info_include(fileInfo_, type.toStdString(), propertyName.toStdString(), true))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Info && name == "INCLUDES" && action == "down")
     {
@@ -1309,6 +1288,9 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_info_include(fileInfo_, type.toStdString(), propertyName.toStdString(), false))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "SET" && action == "add")
     {
@@ -1338,6 +1320,9 @@ void MainWindow::on_ListControlClicked()
 
         // Update
         listWidget->setCurrentRow(listWidget->count() - 1);
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "SET" && action == "remove")
     {
@@ -1362,6 +1347,9 @@ void MainWindow::on_ListControlClicked()
         // Remove from fileInfo_
         if (!parameters_compiler::helper::remove_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString()))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "SET" && action == "up")
     {
@@ -1387,6 +1375,9 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), true))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "SET" && action == "down")
     {
@@ -1412,6 +1403,9 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), false))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "SET" && action == "add")
     {
@@ -1441,6 +1435,9 @@ void MainWindow::on_ListControlClicked()
 
         // Update
         listWidget->setCurrentRow(listWidget->count() - 1);
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "SET" && action == "remove")
     {
@@ -1465,6 +1462,9 @@ void MainWindow::on_ListControlClicked()
         // Remove from fileInfo_
         if (!parameters_compiler::helper::remove_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString()))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "SET" && action == "up")
     {
@@ -1490,6 +1490,9 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), true))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "SET" && action == "down")
     {
@@ -1515,6 +1518,9 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), false))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "SET_COUNT" && action == "add")
     {
@@ -1543,6 +1549,9 @@ void MainWindow::on_ListControlClicked()
 
         // Update
         listWidget->setCurrentRow(listWidget->count() - 1);
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "SET_COUNT" && action == "remove")
     {
@@ -1567,6 +1576,9 @@ void MainWindow::on_ListControlClicked()
         // Remove from fileInfo_
         if (!parameters_compiler::helper::remove_properties_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString()))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "SET_COUNT" && action == "up")
     {
@@ -1592,6 +1604,9 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_properties_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), true))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "SET_COUNT" && action == "down")
     {
@@ -1617,6 +1632,9 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_properties_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), false))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "IDS" && action == "add")
     {
@@ -1646,6 +1664,9 @@ void MainWindow::on_ListControlClicked()
 
         // Update
         listWidget->setCurrentRow(listWidget->count() - 1);
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "IDS" && action == "remove")
     {
@@ -1670,6 +1691,9 @@ void MainWindow::on_ListControlClicked()
         // Remove from fileInfo_
         if (!parameters_compiler::helper::remove_properties_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString()))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "IDS" && action == "up")
     {
@@ -1695,6 +1719,9 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_properties_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), true))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
     else if (group == ControlsGroup::Properties && name == "IDS" && action == "down")
     {
@@ -1720,11 +1747,16 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_properties_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), false))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
 }
 
 void MainWindow::on_CurrentItemChanged(QListWidgetItem *current, QListWidgetItem *previous)
 {
+    bool modified = modified_;
+
     QListWidget* list = qobject_cast<QListWidget*>(sender());
     QString type = list->property("type").toString();
 
@@ -1744,7 +1776,6 @@ void MainWindow::on_CurrentItemChanged(QListWidgetItem *current, QListWidgetItem
         if (!parameters_compiler::helper::set_parameter_info(fileInfo_, type.toStdString(), pip))
             return;
     }
-
 
     TabControls& tc = GetTabControls(type);
 
@@ -1786,6 +1817,21 @@ void MainWindow::on_CurrentItemChanged(QListWidgetItem *current, QListWidgetItem
     {
         qobject_cast<QWidget*>(tc.Properties["PROPERTIES_GROUP"])->setEnabled(true);
     }
+
+    modified_ = modified;
+    UpdateWindowTitle();
+}
+
+void MainWindow::on_TextChanged()
+{
+    modified_ = true;
+    UpdateWindowTitle();
+}
+
+void MainWindow::on_StateChanged(int state)
+{
+    modified_ = true;
+    UpdateWindowTitle();
 }
 
 void MainWindow::on_EditingFinished()
@@ -1866,6 +1912,9 @@ void MainWindow::on_EditingFinished()
         if (!parameters_compiler::helper::rename_property(fileInfo_, type.toStdString(), oldName.toStdString(), newName.toStdString()))
             return;
     }
+
+    modified_ = true;
+    UpdateWindowTitle();
 }
 
 void MainWindow::on_CurrentIndexChanged(int index)
@@ -1922,6 +1971,9 @@ void MainWindow::on_CurrentIndexChanged(int index)
     //    return;
 
     FillPropertyTypeNames();
+
+    modified_ = true;
+    UpdateWindowTitle();
 }
 
 void MainWindow::Update()
@@ -1978,4 +2030,66 @@ void MainWindow::UpdateType(QString type)
         listWidget->addItem(QString::fromStdString(pi.name));
     if (listWidget->count() > 0)
         listWidget->setCurrentRow(0);
+}
+
+void MainWindow::UpdateWindowTitle()
+{
+    QString title = "parameters_composer - Untitled";
+    if (currentFileName_ != "")
+        title = QString("parameters_composer - %1").arg(currentFileName_);
+    if (modified_)
+        title += "*";
+    setWindowTitle(title);
+}
+
+void MainWindow::SaveAs()
+{
+    QFileDialog dialog(this);
+    dialog.setNameFilters({ "Parameters Compiler YAML Files (*.yml *.yaml)", "Parameters Compiler JSON Files (*.json)" });
+    dialog.setAcceptMode(QFileDialog::AcceptSave);
+    dialog.setDefaultSuffix("yml");
+
+    QStringList fileNames;
+    if (dialog.exec())
+        fileNames = dialog.selectedFiles();
+
+    QString selectedFilter = dialog.selectedNameFilter();
+
+    if (fileNames.size() > 0)
+    {
+        qDebug() << fileNames[0];
+        qDebug() << selectedFilter;
+
+        if (!ReadCurrentFileInfo())
+            return;
+
+        std::string message;
+        if (!parameters_compiler::helper::validate(fileInfo_, message))
+        {
+            QMessageBox::critical(this, "Validate error", QString::fromLocal8Bit(message.c_str()));
+            return;
+        }
+
+        if (!parameters_compiler::helper::rearrange_types(fileInfo_))
+        {
+            QMessageBox::critical(this, "Rearrange error", QString::fromLocal8Bit("Возможно, петля в типах"));
+            return;
+        }
+
+        if (selectedFilter == "Parameters Compiler JSON Files (*.json)")
+        {
+            if (!json::writer::write(fileNames[0].toStdString(), fileInfo_))
+                return;
+        }
+        else
+        {
+            if (!yaml::writer::write(fileNames[0].toStdString(), fileInfo_))
+                return;
+        }
+
+        currentFileName_ = fileNames[0];
+        modified_ = false;
+        is_json_ = selectedFilter == "Parameters Compiler JSON Files (*.json)";
+        UpdateWindowTitle();
+    }
 }
