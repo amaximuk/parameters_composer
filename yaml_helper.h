@@ -3,10 +3,10 @@
 
 #include <string>
 #include <vector>
-#include "yaml_parser_types.h"
+#include "parameters_compiler_types.h"
 #include "yaml-cpp/yaml.h"
 
-namespace yaml
+namespace parameters_compiler
 {
 	class helper
 	{
@@ -24,7 +24,7 @@ namespace yaml
             return type_type_names_;
         }
 
-        static std::vector<std::string> get_property_type_names(yaml::file_info& fi)
+        static std::vector<std::string> get_property_type_names(file_info& fi)
         {
             std::vector<std::string> result;
             for (const auto& v : fi.types)
@@ -38,7 +38,7 @@ namespace yaml
             return result;
         }
 
-        static std::vector<std::string> get_user_type_names(const yaml::file_info& fi)
+        static std::vector<std::string> get_user_type_names(const file_info& fi)
         {
             std::vector<std::string> result;
             for (const auto& v : fi.types)
@@ -46,7 +46,7 @@ namespace yaml
             return result;
         }
 
-		static yaml::type_info* get_type_info(yaml::file_info& fi, const std::string& type)
+		static type_info* get_type_info(file_info& fi, const std::string& type)
 		{
 			const auto it = std::find_if(fi.types.begin(), fi.types.end(), [type](const auto& ti) { return ti.name == type; });
             if (it == fi.types.end())
@@ -55,14 +55,14 @@ namespace yaml
 			    return &(*it);
 		}
 
-        static bool set_type_info(yaml::file_info& fi, const std::string& type, const yaml::type_info& ti, bool exclude_parameters)
+        static bool set_type_info(file_info& fi, const std::string& type, const type_info& ti, bool exclude_parameters)
         {
-            yaml::type_info* pti = get_type_info(fi, type);
+            type_info* pti = get_type_info(fi, type);
             if (!pti) return false;
 
             if (exclude_parameters)
             {
-                yaml::type_info tit(ti);
+                type_info tit(ti);
                 tit.parameters = pti->parameters;
                 *pti = tit;
             }
@@ -73,9 +73,9 @@ namespace yaml
             return true;
         }
 
-		static std::vector<yaml::parameter_info>* get_parameters(yaml::file_info& fi, const std::string& type)
+		static std::vector<parameter_info>* get_parameters(file_info& fi, const std::string& type)
 		{
-            std::vector<yaml::parameter_info>* pvect = nullptr;
+            std::vector<parameter_info>* pvect = nullptr;
             if (type == "Main")
             {
                 pvect = &fi.parameters;
@@ -88,9 +88,9 @@ namespace yaml
             return pvect;
 		}
 
-		static yaml::parameter_info* get_parameter_info(yaml::file_info& fi, const std::string& type, const std::string& name)
+		static parameter_info* get_parameter_info(file_info& fi, const std::string& type, const std::string& name)
 		{
-            yaml::parameter_info* ppi = nullptr;
+            parameter_info* ppi = nullptr;
 			auto pvect = get_parameters(fi, type);
             if (pvect)
             {
@@ -101,7 +101,7 @@ namespace yaml
 			return ppi;
 		}
 
-        static bool set_parameter_info(yaml::file_info& fi, const std::string& type, const yaml::parameter_info& pi)
+        static bool set_parameter_info(file_info& fi, const std::string& type, const parameter_info& pi)
         {
             auto ppi = get_parameter_info(fi, type, pi.name);
             if (!ppi) return false;
@@ -109,7 +109,7 @@ namespace yaml
             return true;
         }
 
-        static bool add_parameter_info(yaml::file_info& fi, const std::string& type, const yaml::parameter_info& pi)
+        static bool add_parameter_info(file_info& fi, const std::string& type, const parameter_info& pi)
         {
             auto ppi = get_parameter_info(fi, type, pi.name);
             if (ppi) return false;
@@ -119,7 +119,7 @@ namespace yaml
             return true;
         }
 
-        static bool remove_parameter_info(yaml::file_info& fi, const std::string& type, const std::string& name)
+        static bool remove_parameter_info(file_info& fi, const std::string& type, const std::string& name)
         {
             auto pvect = get_parameters(fi, type);
             if (!pvect) return false;
@@ -127,7 +127,7 @@ namespace yaml
             return true;
         }
 
-        static bool move_parameter_info(yaml::file_info& fi, const std::string& type, const std::string& name, const bool up)
+        static bool move_parameter_info(file_info& fi, const std::string& type, const std::string& name, const bool up)
         {
             auto pvect = get_parameters(fi, type);
             if (!pvect) return false;
@@ -139,7 +139,7 @@ namespace yaml
             return true;
         }
 
-        static bool have_info_value(yaml::file_info& fi, const std::string& type, const std::string& name)
+        static bool have_info_value(file_info& fi, const std::string& type, const std::string& name)
         {
             auto ti = get_type_info(fi, type);
             if (!ti) return false;
@@ -149,7 +149,7 @@ namespace yaml
                 return false;
         }
 
-        static bool add_info_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        static bool add_info_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value)
         {
             if (have_info_value(fi, type, name))
                 return false;
@@ -159,7 +159,7 @@ namespace yaml
             return true;
         }
 
-        static bool remove_info_value(yaml::file_info& fi, const std::string& type, const std::string& name)
+        static bool remove_info_value(file_info& fi, const std::string& type, const std::string& name)
         {
             auto ti = get_type_info(fi, type);
             if (!ti) return false;
@@ -167,7 +167,7 @@ namespace yaml
             return true;
         }
 
-        static bool move_info_value(yaml::file_info& fi, const std::string& type, const std::string& name, const bool up)
+        static bool move_info_value(file_info& fi, const std::string& type, const std::string& name, const bool up)
         {
             auto ti = get_type_info(fi, type);
             if (!ti) return false;
@@ -179,7 +179,7 @@ namespace yaml
             return true;
         }
 
-        static bool have_info_include(yaml::file_info& fi, const std::string& type, const std::string& name)
+        static bool have_info_include(file_info& fi, const std::string& type, const std::string& name)
         {
             auto ti = get_type_info(fi, type);
             if (!ti) return false;
@@ -189,7 +189,7 @@ namespace yaml
                 return false;
         }
 
-        static bool add_info_include(yaml::file_info& fi, const std::string& type, const std::string& name)
+        static bool add_info_include(file_info& fi, const std::string& type, const std::string& name)
         {
             if (have_info_include(fi, type, name))
                 return false;
@@ -199,7 +199,7 @@ namespace yaml
             return true;
         }
 
-        static bool remove_info_include(yaml::file_info& fi, const std::string& type, const std::string& name)
+        static bool remove_info_include(file_info& fi, const std::string& type, const std::string& name)
         {
             auto ti = get_type_info(fi, type);
             if (!ti) return false;
@@ -207,7 +207,7 @@ namespace yaml
             return true;
         }
 
-        static bool move_info_include(yaml::file_info& fi, const std::string& type, const std::string& name, const bool up)
+        static bool move_info_include(file_info& fi, const std::string& type, const std::string& name, const bool up)
         {
             auto ti = get_type_info(fi, type);
             if (!ti) return false;
@@ -219,7 +219,7 @@ namespace yaml
             return true;
         }
 
-        static bool have_properties_set_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        static bool have_properties_set_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value)
         {
             auto ppi = get_parameter_info(fi, type, name);
             if (!ppi) return false;
@@ -229,7 +229,7 @@ namespace yaml
                 return false;
         }
 
-        static bool add_properties_set_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        static bool add_properties_set_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value)
         {
             if (have_properties_set_value(fi, type, name, value))
                 return false;
@@ -239,7 +239,7 @@ namespace yaml
             return true;
         }
 
-        static bool remove_properties_set_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        static bool remove_properties_set_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value)
         {
             auto ppi = get_parameter_info(fi, type, name);
             if (!ppi) return false;
@@ -247,7 +247,7 @@ namespace yaml
             return true;
         }
 
-        static bool move_properties_set_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value, const bool up)
+        static bool move_properties_set_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value, const bool up)
         {
             auto ppi = get_parameter_info(fi, type, name);
             if (!ppi) return false;
@@ -259,7 +259,7 @@ namespace yaml
             return true;
         }
 
-        static bool have_properties_set_count_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        static bool have_properties_set_count_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value)
         {
             auto ppi = get_parameter_info(fi, type, name);
             if (!ppi) return false;
@@ -269,7 +269,7 @@ namespace yaml
                 return false;
         }
 
-        static bool add_properties_set_count_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        static bool add_properties_set_count_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value)
         {
             if (have_properties_set_count_value(fi, type, name, value))
                 return false;
@@ -279,7 +279,7 @@ namespace yaml
             return true;
         }
 
-        static bool remove_properties_set_count_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        static bool remove_properties_set_count_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value)
         {
             auto ppi = get_parameter_info(fi, type, name);
             if (!ppi) return false;
@@ -287,7 +287,7 @@ namespace yaml
             return true;
         }
 
-        static bool move_properties_set_count_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value, const bool up)
+        static bool move_properties_set_count_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value, const bool up)
         {
             auto ppi = get_parameter_info(fi, type, name);
             if (!ppi) return false;
@@ -299,7 +299,7 @@ namespace yaml
             return true;
         }
 
-        static bool have_properties_ids_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        static bool have_properties_ids_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value)
         {
             auto ppi = get_parameter_info(fi, type, name);
             if (!ppi) return false;
@@ -309,7 +309,7 @@ namespace yaml
                 return false;
         }
 
-        static bool add_properties_ids_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        static bool add_properties_ids_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value)
         {
             if (have_properties_ids_value(fi, type, name, value))
                 return false;
@@ -319,7 +319,7 @@ namespace yaml
             return true;
         }
 
-        static bool remove_properties_ids_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value)
+        static bool remove_properties_ids_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value)
         {
             auto ppi = get_parameter_info(fi, type, name);
             if (!ppi) return false;
@@ -327,7 +327,7 @@ namespace yaml
             return true;
         }
 
-        static bool move_properties_ids_value(yaml::file_info& fi, const std::string& type, const std::string& name, const std::string& value, const bool up)
+        static bool move_properties_ids_value(file_info& fi, const std::string& type, const std::string& name, const std::string& value, const bool up)
         {
             auto ppi = get_parameter_info(fi, type, name);
             if (!ppi) return false;
@@ -339,7 +339,7 @@ namespace yaml
             return true;
         }
 
-        static bool validate(yaml::file_info& fi, std::string& message)
+        static bool validate(file_info& fi, std::string& message)
         {
             message = "ok";
 
@@ -391,7 +391,7 @@ namespace yaml
             return true;
         }
 
-        static bool rearrange_types(yaml::file_info& fi)
+        static bool rearrange_types(file_info& fi)
         {
             QList<QString> sorted_names;
             bool found_new = true;
@@ -411,7 +411,7 @@ namespace yaml
                         if (ts.startsWith("array") && ts.length() > 7)
                             ts = ts.mid(6, ts.length() - 7);
 
-                        if (!yaml::helper::is_inner_type(ts.toStdString()) && !sorted_names.contains(ts))
+                        if (!helper::is_inner_type(ts.toStdString()) && !sorted_names.contains(ts))
                         {
                             have_unresolved = true;
                             break;
@@ -437,7 +437,7 @@ namespace yaml
                 }
             }
 
-            std::vector<yaml::type_info> sorted_types;
+            std::vector<type_info> sorted_types;
             for (const auto& sn : sorted_names)
             {
                 for (const auto& ti : fi.types)
@@ -454,7 +454,7 @@ namespace yaml
             return true;
         }
 
-        static bool rename_type(yaml::file_info& fi, const std::string& oldName, const std::string& newName)
+        static bool rename_type(file_info& fi, const std::string& oldName, const std::string& newName)
         {
             std::string arrayOldName = "array<" + oldName + ">";
             std::string arrayNewName = "array<" + newName + ">";
@@ -501,7 +501,7 @@ namespace yaml
             return true;
         }
 
-        static bool rename_property(yaml::file_info& fi, const std::string& type, const std::string& oldName, const std::string& newName)
+        static bool rename_property(file_info& fi, const std::string& type, const std::string& oldName, const std::string& newName)
         {
             auto ppi = get_parameter_info(fi, type, oldName);
             if (!ppi) return false;

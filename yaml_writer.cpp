@@ -12,7 +12,7 @@ using namespace yaml;
 // !!! remove -> last error???
 #define ELRF(message) do { std::cout << message << std::endl; return false; } while(0)
 
-bool writer::write(const std::string& filename, file_info& fi)
+bool writer::write(const std::string& filename, parameters_compiler::file_info& fi)
 {
 	YAML::Emitter emitter;
 
@@ -29,7 +29,7 @@ bool writer::write(const std::string& filename, file_info& fi)
 	return true;
 }
 
-bool writer::write_file_info(YAML::Emitter& emitter, const file_info& fi)
+bool writer::write_file_info(YAML::Emitter& emitter, const parameters_compiler::file_info& fi)
 {
     emitter << YAML::BeginMap;
     write_info_info(emitter, fi.info);
@@ -57,7 +57,7 @@ bool writer::write_file_info(YAML::Emitter& emitter, const file_info& fi)
     return true;
 }
 
-bool writer::write_info_info(YAML::Emitter& emitter, const info_info& ii)
+bool writer::write_info_info(YAML::Emitter& emitter, const parameters_compiler::info_info& ii)
 {
     emitter << YAML::Key << "INFO";
     emitter << YAML::Value << YAML::BeginMap;
@@ -105,7 +105,7 @@ bool writer::write_info_info(YAML::Emitter& emitter, const info_info& ii)
     return true;
 }
 
-bool writer::write_type_info(YAML::Emitter& emitter, const type_info& ti)
+bool writer::write_type_info(YAML::Emitter& emitter, const parameters_compiler::type_info& ti)
 {
     emitter << YAML::BeginMap;
     emitter << YAML::Key << "NAME";
@@ -149,7 +149,7 @@ bool writer::write_type_info(YAML::Emitter& emitter, const type_info& ti)
     return true;
 }
 
-bool writer::write_parameter_info(YAML::Emitter& emitter, const parameter_info& pi)
+bool writer::write_parameter_info(YAML::Emitter& emitter, const parameters_compiler::parameter_info& pi)
 {
     emitter << YAML::BeginMap;
     emitter << YAML::Key << "NAME";

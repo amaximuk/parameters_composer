@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "yaml_parser_types.h"
+#include "parameters_compiler_types.h"
 #include "yaml-cpp/yaml.h"
 
 namespace yaml
@@ -11,13 +11,13 @@ namespace yaml
 	class writer
 	{
 	public:
-		static bool write(const std::string& filename, file_info& fi);
+		static bool write(const std::string& filename, parameters_compiler::file_info& fi);
 
 	private:
-		static bool write_file_info(YAML::Emitter& emitter, const file_info& fi);
-		static bool write_info_info(YAML::Emitter& emitter, const info_info& ii);
-		static bool write_type_info(YAML::Emitter& emitter, const type_info& ti);
-		static bool write_parameter_info(YAML::Emitter& emitter, const parameter_info& pi);
+		static bool write_file_info(YAML::Emitter& emitter, const parameters_compiler::file_info& fi);
+		static bool write_info_info(YAML::Emitter& emitter, const parameters_compiler::info_info& ii);
+		static bool write_type_info(YAML::Emitter& emitter, const parameters_compiler::type_info& ti);
+		static bool write_parameter_info(YAML::Emitter& emitter, const parameters_compiler::parameter_info& pi);
 	};
 }
 

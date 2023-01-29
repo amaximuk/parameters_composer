@@ -12,7 +12,7 @@ using namespace yaml;
 // !!! remove -> last error???
 #define ELRF(message) do { std::cout << message << std::endl; return false; } while(0)
 
-bool parser::parse(const std::string& filename, file_info& fi)
+bool parser::parse(const std::string& filename, parameters_compiler::file_info& fi)
 {
 	YAML::Node config{};
 	try
@@ -39,7 +39,7 @@ bool parser::try_get_yaml_value(const YAML::Node& node, const std::string& name,
 	return true;
 }
 
-bool parser::get_file_info(const YAML::Node& node, file_info& fi)
+bool parser::get_file_info(const YAML::Node& node, parameters_compiler::file_info& fi)
 {
 	// Optional members from yml
 	if (!try_get_yaml_value<std::string>(node, "FILE_FORMAT", fi.format))
@@ -55,7 +55,7 @@ bool parser::get_file_info(const YAML::Node& node, file_info& fi)
 	YAML::Node types = node["TYPES"];
 	for (const auto& type : types)
 	{
-		type_info ti{};
+		parameters_compiler::type_info ti{};
 		if (!get_type_info(type, fi.types, ti))
 			ELRF("Type info parse failed");
 		fi.types.push_back(std::move(ti));
@@ -64,7 +64,7 @@ bool parser::get_file_info(const YAML::Node& node, file_info& fi)
 	YAML::Node parameters = node["PARAMETERS"];
 	for (const auto& parameter : parameters)
 	{
-		parameter_info pi{};
+		parameters_compiler::parameter_info pi{};
 		if (!get_parameter_info(parameter, fi.types, pi))
 			ELRF("Parameter info parse failed");
 		fi.parameters.push_back(std::move(pi));
@@ -73,7 +73,7 @@ bool parser::get_file_info(const YAML::Node& node, file_info& fi)
 	return true;
 }
 
-bool parser::get_info_info(const YAML::Node& node, info_info& ui)
+bool parser::get_info_info(const YAML::Node& node, parameters_compiler::info_info& ui)
 {
 	// Required members from yml
 	if (!try_get_yaml_value<std::string>(node, "ID", ui.id))
@@ -99,7 +99,7 @@ bool parser::get_info_info(const YAML::Node& node, info_info& ui)
 	return true;
 }
 
-bool parser::get_type_info(const YAML::Node& node, const std::vector<type_info>& type_infos, type_info& ti)
+bool parser::get_type_info(const YAML::Node& node, const std::vector<parameters_compiler::type_info>& type_infos, parameters_compiler::type_info& ti)
 {
 	// Required members from yml
 	if (!try_get_yaml_value<std::string>(node, "NAME", ti.name))
@@ -115,7 +115,7 @@ bool parser::get_type_info(const YAML::Node& node, const std::vector<type_info>&
 	YAML::Node parameters = node["PARAMETERS"];
 	for (const auto& parameter : parameters)
 	{
-		parameter_info pi;
+		parameters_compiler::parameter_info pi;
 		if (!get_parameter_info(parameter, type_infos, pi))
 			ELRF("Get parameter info failed");
 		ti.parameters.push_back(std::move(pi));
@@ -131,7 +131,7 @@ bool parser::get_type_info(const YAML::Node& node, const std::vector<type_info>&
 	return true;
 }
 
-bool parser::get_parameter_info(const YAML::Node& node, const std::vector<type_info>& type_infos, parameter_info& pi)
+bool parser::get_parameter_info(const YAML::Node& node, const std::vector<parameters_compiler::type_info>& type_infos, parameters_compiler::parameter_info& pi)
 {
 	// Get required members
 	if (!try_get_yaml_value<std::string>(node, "TYPE", pi.type))

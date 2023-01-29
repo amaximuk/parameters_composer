@@ -5,7 +5,7 @@
 #include <QListWidgetItem>
 #include <QGridLayout>
 
-#include "yaml_parser_types.h"
+#include "parameters_compiler_types.h"
 
 class MainWindow : public QMainWindow
 {
@@ -29,7 +29,7 @@ private:
 
 private:
     QString currentFileName_;
-    yaml::file_info fileInfo_;
+    parameters_compiler::file_info fileInfo_;
     QList<TabControls> tabs_;
 
 public:
@@ -70,9 +70,9 @@ private:
     void AddComboBoxTypeType(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
 
     bool ReadCurrentFileInfo();
-    bool ReadCurrentMainInfo(yaml::info_info& mi);
-    bool ReadCurrentTypeInfo(QString type, yaml::type_info& ti);
-    bool ReadCurrentParameter(QString type, yaml::parameter_info& pi);
+    bool ReadCurrentMainInfo(parameters_compiler::info_info& mi);
+    bool ReadCurrentTypeInfo(QString type, parameters_compiler::type_info& ti);
+    bool ReadCurrentParameter(QString type, parameters_compiler::parameter_info& pi);
     
     bool HaveCurrentParameter(QString type);
     bool FillPropertyTypeNames();
@@ -85,7 +85,10 @@ private:
 
     // !!!!!!!!!!!!!!!!!!!!!
     // INCLUDES вынести в общую часть, т.к. они могут понадобиться для DEFAULT или RESTRICTION любого параметра
-    //bool FillTypeTypeNames();
+    // !!!!!!!!!!!!!!!!!!!!!
+    // REQUIRED bool->string?
+    // !!! remove -> last error???
+
 
     void Update();
     void UpdateMain();

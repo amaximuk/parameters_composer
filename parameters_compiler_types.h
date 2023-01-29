@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <regex>
 
-namespace yaml
+namespace parameters_compiler
 {
 	const std::vector<std::string> type_type_names_ = {
 		"yml",
