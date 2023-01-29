@@ -385,32 +385,32 @@ void MainWindow::on_RemoveType_action()
 
 void MainWindow::CreateMenu()
 {
-    QAction* newAct = new QAction(tr("&New"), this);
+    QAction* newAct = new QAction(QString::fromLocal8Bit("Создать"), this);
     newAct->setShortcuts(QKeySequence::New);
-    newAct->setStatusTip(tr("Create new file"));
+    newAct->setStatusTip(QString::fromLocal8Bit("Создать новый файл"));
     connect(newAct, &QAction::triggered, this, &MainWindow::on_NewFile_action);
 
-    QAction* openAct = new QAction(tr("&Open"), this);
+    QAction* openAct = new QAction(QString::fromLocal8Bit("Открыть"), this);
     openAct->setShortcuts(QKeySequence::Open);
-    openAct->setStatusTip(tr("Open file"));
+    openAct->setStatusTip(QString::fromLocal8Bit("Открыть файл"));
     connect(openAct, &QAction::triggered, this, &MainWindow::on_OpenFile_action);
 
-    QAction* saveAct = new QAction(tr("&Save"), this);
+    QAction* saveAct = new QAction(QString::fromLocal8Bit("Сохранить"), this);
     saveAct->setShortcuts(QKeySequence::Save);
-    saveAct->setStatusTip(tr("Save file"));
+    saveAct->setStatusTip(QString::fromLocal8Bit("Сохранить файл"));
     connect(saveAct, &QAction::triggered, this, &MainWindow::on_SaveFile_action);
 
-    QAction* saveAsAct = new QAction(tr("&Save as"), this);
+    QAction* saveAsAct = new QAction(QString::fromLocal8Bit("Сохранить как..."), this);
     saveAsAct->setShortcuts(QKeySequence::SaveAs);
-    saveAsAct->setStatusTip(tr("Save file as"));
+    saveAsAct->setStatusTip(QString::fromLocal8Bit("Сохранить файл как..."));
     connect(saveAsAct, &QAction::triggered, this, &MainWindow::on_SaveAsFile_action);
 
-    QAction* quitAct = new QAction(tr("&Quit"), this);
+    QAction* quitAct = new QAction(QString::fromLocal8Bit("Выйти"), this);
     quitAct->setShortcuts(QKeySequence::Quit);
-    quitAct->setStatusTip(tr("Quit application"));
+    quitAct->setStatusTip(QString::fromLocal8Bit("Выйти из приложения"));
     connect(quitAct, &QAction::triggered, this, &MainWindow::on_Quit_action);
 
-    QMenu* fileMenu = menuBar()->addMenu("&File");
+    QMenu* fileMenu = menuBar()->addMenu(QString::fromLocal8Bit("Файл"));
     fileMenu->addAction(newAct);
     fileMenu->addAction(openAct);
     fileMenu->addAction(saveAct);
@@ -418,15 +418,15 @@ void MainWindow::CreateMenu()
     fileMenu->addSeparator();
     fileMenu->addAction(quitAct);
 
-    QAction* addTypeAct = new QAction(tr("&Add"), this);
-    addTypeAct->setStatusTip(tr("Add type"));
+    QAction* addTypeAct = new QAction(QString::fromLocal8Bit("Добавить"), this);
+    addTypeAct->setStatusTip(QString::fromLocal8Bit("Добавить тип"));
     connect(addTypeAct, &QAction::triggered, this, &MainWindow::on_AddType_action);
 
-    QAction* removeTypeAct = new QAction(tr("&Remove"), this);
-    removeTypeAct->setStatusTip(tr("Remove type"));
+    QAction* removeTypeAct = new QAction(QString::fromLocal8Bit("Удалить"), this);
+    removeTypeAct->setStatusTip(QString::fromLocal8Bit("Удалить тип"));
     connect(removeTypeAct, &QAction::triggered, this, &MainWindow::on_RemoveType_action);
 
-    QMenu* typeMenu = menuBar()->addMenu("&Types");
+    QMenu* typeMenu = menuBar()->addMenu(QString::fromLocal8Bit("Типы"));
     typeMenu->addAction(addTypeAct);
     typeMenu->addAction(removeTypeAct);
 }
@@ -1853,10 +1853,6 @@ void MainWindow::on_EditingFinished()
         // Update fileInfo_
         if (!yaml::helper::rename_property(fileInfo_, type.toStdString(), oldName.toStdString(), newName.toStdString()))
             return;
-    }
-    else if (group == MainWindow::ControlsGroup::Properties && name == "TYPE")
-    {
-        // Property TYPE
     }
 }
 
