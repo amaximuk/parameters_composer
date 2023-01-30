@@ -110,4 +110,13 @@ namespace parameters_compiler
 		std::vector<type_info> types;
 		std::vector<parameter_info> parameters;
 	};
+
+	enum class struct_types
+	{
+		file_info,
+		info_info,
+		type_info,
+		parameter_info,
+		restrictions_info
+	};
 }

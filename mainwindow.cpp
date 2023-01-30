@@ -433,7 +433,6 @@ QWidget* MainWindow::CreateMainWidget()
     plainTextEditHint_ = new QPlainTextEdit;
     plainTextEditHint_->setFixedHeight(100);
     plainTextEditHint_->setReadOnly(true);
-    plainTextEditHint_->appendHtml("<b>qqq</b><p>qqq</p>");
     QVBoxLayout* vBoxLayoutHint = new QVBoxLayout;
     vBoxLayoutHint->setMargin(0);
     vBoxLayoutHint->addWidget(plainTextEditHint_);
@@ -2130,8 +2129,34 @@ void MainWindow::SaveAs()
 
 void MainWindow::on_FocusChanged(bool focus)
 {
-    qDebug() << "on_FocusChanged";
-    qDebug() << sender()->property("name");
-    qDebug() << sender()->property("group");
-    qDebug() << sender()->property("type");
+    if (!focus)
+    {
+        plainTextEditHint_->clear();
+        return;
+    }
+
+    QString type = sender()->property("type").toString();
+    ControlsGroup group = static_cast<ControlsGroup>(sender()->property("group").toInt());
+    QString name = sender()->property("name").toString();
+
+    parameters_compiler::struct_types st;
+    if (type == "Main")
+    {
+        if (group == ControlsGroup::Info)
+            st = parameters_compiler::struct_types::info_info;
+        else if (group == ControlsGroup::Properties)
+            st = parameters_compiler::struct_types::parameter_info;
+    }
+    else
+    {
+        if (group == ControlsGroup::Info)
+            st = parameters_compiler::struct_types::type_info;
+        else if (group == ControlsGroup::Properties)
+            st = parameters_compiler::struct_types::parameter_info;
+    }
+
+    QString text = QString::fromLocal8Bit(parameters_compiler::helper::get_hint_html(st, name.toStdString()).c_str());
+    plainTextEditHint_->clear();
+    plainTextEditHint_->appendHtml(QString("<p style='font-weight: bold; font-size: 14px;'>%1</p>").arg(name));
+    plainTextEditHint_->appendHtml(text);
 }
