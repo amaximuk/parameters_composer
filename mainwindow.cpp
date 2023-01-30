@@ -17,10 +17,11 @@
 #include <QCloseEvent>
 #include <QComboBox>
 
+#include "parameters_compiler_helper.h"
 #include "yaml_parser.h"
 #include "yaml_writer.h"
-#include "yaml_helper.h"
 #include "json_writer.h"
+#include "pc_line_edit.h"
 #include "mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -133,11 +134,11 @@ void MainWindow::on_NewFile_action()
             return;
     }
 
-    while (qobject_cast<QTabWidget*>(centralWidget())->count() > 0)
-        qobject_cast<QTabWidget*>(centralWidget())->removeTab(0);
+    while (tabWidget_->count() > 0)
+        tabWidget_->removeTab(0);
 
     QWidget* widgetTabProperties = CreateMainTabWidget();
-    qobject_cast<QTabWidget*>(centralWidget())->addTab(widgetTabProperties, "Main");
+    tabWidget_->addTab(widgetTabProperties, "Main");
 
     fileInfo_ = {};
 
@@ -190,8 +191,8 @@ void MainWindow::on_OpenFile_action()
         return;
     }
 
-    while (qobject_cast<QTabWidget*>(centralWidget())->count() > 1)
-        qobject_cast<QTabWidget*>(centralWidget())->removeTab(1);
+    while (tabWidget_->count() > 1)
+        tabWidget_->removeTab(1);
 
     TabControls& tc = GetTabControls("Main");
     QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
@@ -203,7 +204,7 @@ void MainWindow::on_OpenFile_action()
     for (const auto& type : parameters_compiler::helper::get_user_type_names(fileInfo_))
     {
         QWidget* widgetTabType = CreateTypeTabWidget(QString::fromStdString(type));
-        qobject_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, QString::fromStdString(type));
+        tabWidget_->addTab(widgetTabType, QString::fromStdString(type));
         UpdateType(QString::fromStdString(type));
     }
 
@@ -286,8 +287,8 @@ void MainWindow::on_AddType_action()
     }
 
     QWidget* widgetTabType = CreateTypeTabWidget(text);
-    qobject_cast<QTabWidget*>(centralWidget())->addTab(widgetTabType, text);
-    qobject_cast<QTabWidget*>(centralWidget())->setCurrentWidget(widgetTabType);
+    tabWidget_->addTab(widgetTabType, text);
+    tabWidget_->setCurrentWidget(widgetTabType);
 
     TabControls& tc = GetTabControls(text);
     qobject_cast<QLineEdit*>(tc.Info["NAME"])->setText(text);
@@ -305,8 +306,7 @@ void MainWindow::on_AddType_action()
 
 void MainWindow::on_RemoveType_action()
 {
-    QTabWidget* tabWidget = qobject_cast<QTabWidget*>(centralWidget());
-    QString name = tabWidget->tabText(tabWidget->indexOf(tabWidget->currentWidget()));
+    QString name = tabWidget_->tabText(tabWidget_->indexOf(tabWidget_->currentWidget()));
 
     if (name == "Main")
     {
@@ -352,7 +352,7 @@ void MainWindow::on_RemoveType_action()
         return;
     }
 
-    tabWidget->removeTab(tabWidget->indexOf(tabWidget->currentWidget()));
+    tabWidget_->removeTab(tabWidget_->indexOf(tabWidget_->currentWidget()));
     auto it = std::find_if(fileInfo_.types.cbegin(), fileInfo_.types.cend(), [name](auto& t) { if (t.name == name.toStdString()) return true; else return false; });
     fileInfo_.types.erase(it);
 
@@ -416,12 +416,46 @@ void MainWindow::CreateUi()
 
     CreateMenu();
 
-    QTabWidget* tabWidget = new QTabWidget;
-    QWidget* widgetTabProperties = CreateMainTabWidget();
-    tabWidget->addTab(widgetTabProperties, "Main");
+    //QTabWidget* tabWidget = new QTabWidget;
+    //QWidget* widgetTabProperties = CreateMainTabWidget();
+    //tabWidget->addTab(widgetTabProperties, "Main");
+    //setCentralWidget(tabWidget);
 
-    setCentralWidget(tabWidget);
+    QWidget* mainWidget = CreateMainWidget();
+    setCentralWidget(mainWidget);
 }
+
+QWidget* MainWindow::CreateMainWidget()
+{
+    QWidget* widgetMainProperties = new QWidget;
+
+    QWidget* hintWidget = new QWidget;
+    plainTextEditHint_ = new QPlainTextEdit;
+    plainTextEditHint_->setFixedHeight(100);
+    plainTextEditHint_->setReadOnly(true);
+    plainTextEditHint_->appendHtml("<b>qqq</b><p>qqq</p>");
+    QVBoxLayout* vBoxLayoutHint = new QVBoxLayout;
+    vBoxLayoutHint->setMargin(0);
+    vBoxLayoutHint->addWidget(plainTextEditHint_);
+    hintWidget->setLayout(vBoxLayoutHint);
+
+    tabWidget_ = new QTabWidget;
+    QWidget* widgetTabProperties = CreateMainTabWidget();
+    tabWidget_->addTab(widgetTabProperties, "Main");
+
+    QSplitter* tabVSplitter = new QSplitter(Qt::Vertical);
+    tabVSplitter->addWidget(tabWidget_);
+    tabVSplitter->addWidget(hintWidget);
+    tabVSplitter->setStretchFactor(0, 1);
+    tabVSplitter->setStretchFactor(1, 0);
+
+    QVBoxLayout* vBoxLayoutSplitter = new QVBoxLayout;
+    vBoxLayoutSplitter->addWidget(tabVSplitter);
+    widgetMainProperties->setLayout(vBoxLayoutSplitter);
+
+    return widgetMainProperties;
+}
+
 QWidget* MainWindow::CreateMainTabWidget()
 {
     QWidget* widgetTabProperties = new QWidget;
@@ -510,11 +544,13 @@ void MainWindow::AddLineEditProperty(QGridLayout* gridLayout, QString name, int 
     label->setText(name);
 
     gridLayout->addWidget(label, index, 0);
-    QLineEdit* lineEdit = new QLineEdit;
+    PcLineEdit* lineEdit = new PcLineEdit;
     lineEdit->setProperty("name", name);
     lineEdit->setProperty("group", static_cast<int>(group));
     lineEdit->setProperty("type", type);
+    lineEdit->setToolTip(QString::fromLocal8Bit("Пользовательские типы данных для использования в массивах.\nСекция может отсутствовать, если пользовательские типы не используются"));
 
+    connect(lineEdit, &PcLineEdit::onFocusChanged, this, &MainWindow::on_FocusChanged);
     connect(lineEdit, &QLineEdit::editingFinished, this, &MainWindow::on_EditingFinished);
     gridLayout->addWidget(lineEdit, index, 1);
 
@@ -1854,8 +1890,6 @@ void MainWindow::on_EditingFinished()
     else if (group == MainWindow::ControlsGroup::Info && name == "NAME")
     {
         // Type NAME
-        QTabWidget* tabWidget = qobject_cast<QTabWidget*>(centralWidget());
-
         QString oldName = type;
         QString newName = lineEdit->text();
 
@@ -1867,11 +1901,11 @@ void MainWindow::on_EditingFinished()
         }
 
         // Update controls
-        for (int i = 0; i < tabWidget->count(); i++)
+        for (int i = 0; i < tabWidget_->count(); i++)
         {
-            if (tabWidget->tabText(i) == oldName)
+            if (tabWidget_->tabText(i) == oldName)
             {
-                tabWidget->setTabText(i, newName);
+                tabWidget_->setTabText(i, newName);
                 break;
             }
         }
@@ -2092,4 +2126,12 @@ void MainWindow::SaveAs()
         is_json_ = selectedFilter == "Parameters Compiler JSON Files (*.json)";
         UpdateWindowTitle();
     }
+}
+
+void MainWindow::on_FocusChanged(bool focus)
+{
+    qDebug() << "on_FocusChanged";
+    qDebug() << sender()->property("name");
+    qDebug() << sender()->property("group");
+    qDebug() << sender()->property("type");
 }

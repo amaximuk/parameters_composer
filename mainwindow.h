@@ -4,6 +4,8 @@
 #include <QMainWindow>
 #include <QListWidgetItem>
 #include <QGridLayout>
+#include <QTabWidget>
+#include <QPlainTextEdit>
 
 #include "parameters_compiler_types.h"
 
@@ -33,6 +35,8 @@ private:
     QList<TabControls> tabs_;
     bool is_json_;
     bool modified_;
+    QTabWidget* tabWidget_;
+    QPlainTextEdit* plainTextEditHint_;
 
 public:
     MainWindow(QWidget *parent = nullptr);
@@ -53,6 +57,7 @@ private slots:
 private:
     void CreateUi();
     void CreateMenu();
+    QWidget* CreateMainWidget();
     QWidget* CreateMainTabWidget();
     QWidget* CreateTypeTabWidget(QString type);
     QWidget* CreateMainTabInfoWidget();
@@ -86,6 +91,8 @@ private:
 
     // !!!!!!!!!!!!!!!!!!!!!
     // INCLUDES вынести в общую часть, т.к. они могут понадобиться для DEFAULT или RESTRICTION любого параметра
+    // это не очень бьется со структурой файла, так что скорее всего останется как есть
+    // если нужен заголовочник, можно создать пустой тип enum
     // !!!!!!!!!!!!!!!!!!!!!
     // REQUIRED bool->string?
     // !!! remove -> last error???
@@ -105,5 +112,6 @@ private slots:
     void on_CurrentIndexChanged(int index);
     void on_TextChanged();
     void on_StateChanged(int state);
+    void on_FocusChanged(bool focus);
 };
 #endif // MAINWINDOW_H

@@ -1,16 +1,20 @@
-#ifndef YAML_HELPER_H_
-#define YAML_HELPER_H_
+#ifndef PARAMETERS_COMPILER_HELPER_H_
+#define PARAMETERS_COMPILER_HELPER_H_
 
 #include <string>
 #include <vector>
 #include "parameters_compiler_types.h"
-#include "yaml-cpp/yaml.h"
 
 namespace parameters_compiler
 {
 	class helper
 	{
 	public:
+        static std::string get_hint(const std::string& type, const std::string& name)
+        {
+            return type + " - " + name;
+        }
+
 		static bool is_inner_type(std::string name)
 		{
             auto it = std::find_if(parameter_type_names_.cbegin(), parameter_type_names_.cend(), [name](const auto& v) { return v == name; });
@@ -511,4 +515,4 @@ namespace parameters_compiler
 	};
 }
 
-#endif // YAML_HELPER_H_
+#endif // PARAMETERS_COMPILER_HELPER_H_
