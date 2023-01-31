@@ -7,6 +7,7 @@
 #include <QTabWidget>
 #include <QPlainTextEdit>
 
+#include "focus_filter.h"
 #include "parameters_compiler_types.h"
 
 class MainWindow : public QMainWindow
@@ -17,7 +18,7 @@ private:
     enum class ControlsGroup
     {
         Info,
-        PropertyList,
+        Parameters,
         Properties
     };
 
@@ -25,7 +26,7 @@ private:
     {
         QString Name;
         QMap<QString, QObject*> Info;
-        QMap<QString, QObject*> PropertyList;
+        QMap<QString, QObject*> Parameters;
         QMap<QString, QObject*> Properties;
     };
 
@@ -37,6 +38,7 @@ private:
     bool modified_;
     QTabWidget* tabWidget_;
     QPlainTextEdit* plainTextEditHint_;
+    FocusFilter* focusFilter_;
 
 public:
     MainWindow(QWidget *parent = nullptr);
@@ -64,7 +66,7 @@ private:
     QWidget* CreateTypeTabInfoWidget(QString type);
     QWidget* CreatePropertyListWidget(QString type);
     QWidget* CreatePropertiesWidget(QString type);
-    QWidget* CreateListControlWidget(int buttonSize, QString type, ControlsGroup group, QString name);
+    QWidget* CreateListControlWidget(int buttonSize, QString type, ControlsGroup group, QString name, QString toolTipBase);
 
     void AddLineEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group, bool bold);
     void AddPlainTextEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
@@ -112,6 +114,6 @@ private slots:
     void on_CurrentIndexChanged(int index);
     void on_TextChanged();
     void on_StateChanged(int state);
-    void on_FocusChanged(bool focus);
+    void on_FocusChanged(QObject* sender, bool focus);
 };
 #endif // MAINWINDOW_H

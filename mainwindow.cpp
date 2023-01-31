@@ -21,7 +21,6 @@
 #include "yaml_parser.h"
 #include "yaml_writer.h"
 #include "json_writer.h"
-#include "pc_line_edit.h"
 #include "mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -99,8 +98,8 @@ QMap<QString, QObject*>& MainWindow::GetControls(QString type, ControlsGroup gro
     {
     case MainWindow::ControlsGroup::Info:
         return tc.Info;
-    case MainWindow::ControlsGroup::PropertyList:
-        return tc.PropertyList;
+    case MainWindow::ControlsGroup::Parameters:
+        return tc.Parameters;
     case MainWindow::ControlsGroup::Properties:
         return tc.Properties;
     default:
@@ -116,7 +115,7 @@ bool MainWindow::RenameTabControlsType(QString oldType, QString newType)
 
     for (auto& x : tc.Info)
         x->setProperty("type", newType);
-    for (auto& x : tc.PropertyList)
+    for (auto& x : tc.Parameters)
         x->setProperty("type", newType);
     for (auto& x : tc.Properties)
         x->setProperty("type", newType);
@@ -137,8 +136,8 @@ void MainWindow::on_NewFile_action()
     while (tabWidget_->count() > 0)
         tabWidget_->removeTab(0);
 
-    QWidget* widgetTabProperties = CreateMainTabWidget();
-    tabWidget_->addTab(widgetTabProperties, "Main");
+    QWidget* widgetTabMain = CreateMainTabWidget();
+    tabWidget_->addTab(widgetTabMain, "Main");
 
     fileInfo_ = {};
 
@@ -195,7 +194,7 @@ void MainWindow::on_OpenFile_action()
         tabWidget_->removeTab(1);
 
     TabControls& tc = GetTabControls("Main");
-    QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+    QListWidget* listWidget = qobject_cast<QListWidget*>(tc.Parameters["PARAMETERS"]);
     listWidget->clear();
 
     fileInfo_ = fi;
@@ -421,6 +420,9 @@ void MainWindow::CreateUi()
     //tabWidget->addTab(widgetTabProperties, "Main");
     //setCentralWidget(tabWidget);
 
+    focusFilter_ = new FocusFilter;
+    connect(focusFilter_, &FocusFilter::onFocusChanged, this, &MainWindow::on_FocusChanged);
+
     QWidget* mainWidget = CreateMainWidget();
     setCentralWidget(mainWidget);
 }
@@ -464,7 +466,7 @@ QWidget* MainWindow::CreateMainTabWidget()
     QWidget* widgetSplitterProperties = CreatePropertiesWidget("Main");
 
     AddGroupWidget(widgetSplitterInfo, "INFO_GROUP", "Main", ControlsGroup::Info);
-    AddGroupWidget(widgetSplitterPropertyList, "PROPERTY_LIST_GROUP", "Main", ControlsGroup::PropertyList);
+    AddGroupWidget(widgetSplitterPropertyList, "PARAMETERS_GROUP", "Main", ControlsGroup::Parameters);
     AddGroupWidget(widgetSplitterProperties, "PROPERTIES_GROUP", "Main", ControlsGroup::Properties);
 
     QSplitter* tabHSplitter = new QSplitter(Qt::Horizontal);
@@ -512,12 +514,16 @@ QWidget* MainWindow::CreatePropertyListWidget(QString type)
 {
     QLabel* labelPropertyListHeader = new QLabel;
     labelPropertyListHeader->setStyleSheet("font-weight: bold; font-size: 14px");
-    labelPropertyListHeader->setText("PROPERTIES");
+    labelPropertyListHeader->setText("PARAMETERS");
 
-    QWidget* widgetPropertyListButtons = CreateListControlWidget(32, type, ControlsGroup::PropertyList, "PROPERTIES");
+    QWidget* widgetPropertyListButtons = CreateListControlWidget(32, type, ControlsGroup::Parameters, "PARAMETERS", QString::fromLocal8Bit("параметр"));
 
     QListWidget* listWidget = new QListWidget;
+    listWidget->setProperty("name", "PARAMETERS");
+    listWidget->setProperty("group", static_cast<int>(ControlsGroup::Parameters));
     listWidget->setProperty("type", type);
+    listWidget->installEventFilter(focusFilter_);
+
     connect(listWidget, &QListWidget::currentItemChanged, this, &MainWindow::on_CurrentItemChanged);
 
     QVBoxLayout* vBoxLayoutPropertyList = new QVBoxLayout;
@@ -529,8 +535,8 @@ QWidget* MainWindow::CreatePropertyListWidget(QString type)
     QWidget* widgetSplitterPropertyList = new QWidget;
     widgetSplitterPropertyList->setLayout(vBoxLayoutPropertyList);
 
-    auto& tc = GetControls(type, ControlsGroup::PropertyList);
-    tc["PROPERTIES"] = listWidget;
+    auto& tc = GetControls(type, ControlsGroup::Parameters);
+    tc["PARAMETERS"] = listWidget;
 
     return widgetSplitterPropertyList;
 }
@@ -543,13 +549,12 @@ void MainWindow::AddLineEditProperty(QGridLayout* gridLayout, QString name, int 
     label->setText(name);
 
     gridLayout->addWidget(label, index, 0);
-    PcLineEdit* lineEdit = new PcLineEdit;
+    QLineEdit* lineEdit = new QLineEdit;
     lineEdit->setProperty("name", name);
     lineEdit->setProperty("group", static_cast<int>(group));
     lineEdit->setProperty("type", type);
-    lineEdit->setToolTip(QString::fromLocal8Bit("Пользовательские типы данных для использования в массивах.\nСекция может отсутствовать, если пользовательские типы не используются"));
+    lineEdit->installEventFilter(focusFilter_);
 
-    connect(lineEdit, &PcLineEdit::onFocusChanged, this, &MainWindow::on_FocusChanged);
     connect(lineEdit, &QLineEdit::editingFinished, this, &MainWindow::on_EditingFinished);
     gridLayout->addWidget(lineEdit, index, 1);
 
@@ -564,6 +569,7 @@ void MainWindow::AddPlainTextEditProperty(QGridLayout* gridLayout, QString name,
     plainTextEdit->setProperty("name", name);
     plainTextEdit->setProperty("group", static_cast<int>(group));
     plainTextEdit->setProperty("type", type);
+    plainTextEdit->installEventFilter(focusFilter_);
 
     connect(plainTextEdit, &QPlainTextEdit::textChanged, this, &MainWindow::on_TextChanged);
     gridLayout->addWidget(plainTextEdit, index, 1);
@@ -579,6 +585,7 @@ void MainWindow::AddCheckBoxProperty(QGridLayout* gridLayout, QString name, int 
     checkBox->setProperty("name", name);
     checkBox->setProperty("group", static_cast<int>(group));
     checkBox->setProperty("type", type);
+    checkBox->installEventFilter(focusFilter_);
 
     connect(checkBox, &QCheckBox::stateChanged, this, &MainWindow::on_StateChanged);
     gridLayout->addWidget(checkBox, index, 1);
@@ -597,8 +604,13 @@ void MainWindow::AddPropertySubheader(QGridLayout* gridLayout, QString text, QSt
 
 void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group)
 {
-    QWidget* widgetPropertiesRestrictionsSetButtons = CreateListControlWidget(24, type, group, name);
+    QWidget* widgetPropertiesRestrictionsSetButtons = CreateListControlWidget(24, type, group, name, QString::fromLocal8Bit("значение %1").arg(name));
     QListWidget* listWidget = new QListWidget;
+    listWidget->setProperty("name", name);
+    listWidget->setProperty("group", static_cast<int>(group));
+    listWidget->setProperty("type", type);
+    listWidget->installEventFilter(focusFilter_);
+
     QVBoxLayout* vBoxLayoutPropertiesRestrictionsSet = new QVBoxLayout;
     vBoxLayoutPropertiesRestrictionsSet->addWidget(widgetPropertiesRestrictionsSetButtons);
     vBoxLayoutPropertiesRestrictionsSet->addWidget(listWidget, 1);
@@ -622,6 +634,7 @@ void MainWindow::AddComboBoxPropertyType(QGridLayout* gridLayout, QString name, 
     comboBox->setProperty("name", name);
     comboBox->setProperty("group", static_cast<int>(group));
     comboBox->setProperty("type", type);
+    comboBox->installEventFilter(focusFilter_);
 
     for (const auto& s : parameters_compiler::helper::get_property_type_names(fileInfo_))
         comboBox->addItem(QString::fromStdString(s));
@@ -641,6 +654,7 @@ void MainWindow::AddComboBoxTypeType(QGridLayout* gridLayout, QString name, int 
     comboBox->setProperty("name", name);
     comboBox->setProperty("group", static_cast<int>(group));
     comboBox->setProperty("type", type);
+    comboBox->installEventFilter(focusFilter_);
 
     for (const auto& s : parameters_compiler::helper::get_type_type_names())
         comboBox->addItem(QString::fromStdString(s));
@@ -699,7 +713,7 @@ bool MainWindow::ReadCurrentParameter(QString type, parameters_compiler::paramet
 bool MainWindow::HaveCurrentParameter(QString type)
 {
     TabControls& tc = GetTabControls(type);
-    QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+    QListWidget* listWidget = qobject_cast<QListWidget*>(tc.Parameters["PARAMETERS"]);
     return (listWidget->selectedItems().size() > 0);
 }
 
@@ -888,7 +902,7 @@ QWidget* MainWindow::CreatePropertiesWidget(QString type)
     return scrollAreaProperties;
 }
 
-QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, ControlsGroup group, QString name)
+QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, ControlsGroup group, QString name, QString toolTipBase)
 {
     QHBoxLayout* hBoxLayoutPropertyListButtons = new QHBoxLayout;
     hBoxLayoutPropertyListButtons->setMargin(0);
@@ -901,6 +915,7 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListAdd->setProperty("group", static_cast<int>(group));
     toolButtonPropertyListAdd->setProperty("name", name);
     toolButtonPropertyListAdd->setProperty("action", "add");
+    toolButtonPropertyListAdd->setToolTip(QString::fromLocal8Bit("Добавить %1").arg(toolTipBase));
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListAdd);
     connect(toolButtonPropertyListAdd, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
 
@@ -912,6 +927,7 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListRemove->setProperty("group", static_cast<int>(group));
     toolButtonPropertyListRemove->setProperty("name", name);
     toolButtonPropertyListRemove->setProperty("action", "remove");
+    toolButtonPropertyListRemove->setToolTip(QString::fromLocal8Bit("Удалить %1").arg(toolTipBase));
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListRemove);
     connect(toolButtonPropertyListRemove, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
 
@@ -923,6 +939,7 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListUp->setProperty("group", static_cast<int>(group));
     toolButtonPropertyListUp->setProperty("name", name);
     toolButtonPropertyListUp->setProperty("action", "up");
+    toolButtonPropertyListUp->setToolTip(QString::fromLocal8Bit("Поднять %1 в списке").arg(toolTipBase));
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListUp);
     connect(toolButtonPropertyListUp, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
 
@@ -934,6 +951,7 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListDown->setProperty("group", static_cast<int>(group));
     toolButtonPropertyListDown->setProperty("name", name);
     toolButtonPropertyListDown->setProperty("action", "down");
+    toolButtonPropertyListDown->setToolTip(QString::fromLocal8Bit("Опустить %1 в списке").arg(toolTipBase));
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListDown);
     connect(toolButtonPropertyListDown, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
 
@@ -955,7 +973,7 @@ QWidget* MainWindow::CreateTypeTabWidget(QString type)
     QWidget* widgetSplitterProperties = CreatePropertiesWidget(type);
 
     AddGroupWidget(widgetSplitterInfo, "INFO_GROUP", type, ControlsGroup::Info);
-    AddGroupWidget(widgetSplitterPropertyList, "PROPERTY_LIST_GROUP", type, ControlsGroup::PropertyList);
+    AddGroupWidget(widgetSplitterPropertyList, "PARAMETERS_GROUP", type, ControlsGroup::Parameters);
     AddGroupWidget(widgetSplitterProperties, "PROPERTIES_GROUP", type, ControlsGroup::Properties);
 
     QSplitter* tabHSplitter = new QSplitter(Qt::Horizontal);
@@ -1001,7 +1019,7 @@ void MainWindow::on_ListControlClicked()
     QString name = tb->property("name").toString();
     QString action = tb->property("action").toString();
 
-    if (group == ControlsGroup::PropertyList && name == "PROPERTIES" && action == "add")
+    if (group == ControlsGroup::Parameters && name == "PARAMETERS" && action == "add")
     {
         bool ok;
         QString text = QInputDialog::getText(this, "Add property", QString::fromLocal8Bit("Имя параметра:"), QLineEdit::Normal, "", &ok);
@@ -1017,7 +1035,7 @@ void MainWindow::on_ListControlClicked()
 
         // Add to control
         auto& tc = GetControls(type, group);
-        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PROPERTIES"]);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PARAMETERS"]);
         listWidget->addItem(new QListWidgetItem(text));
 
         // Add to fileInfo_
@@ -1034,10 +1052,10 @@ void MainWindow::on_ListControlClicked()
         modified_ = true;
         UpdateWindowTitle();
     }
-    else if (group == ControlsGroup::PropertyList && name == "PROPERTIES" && action == "remove")
+    else if (group == ControlsGroup::Parameters && name == "PARAMETERS" && action == "remove")
     {
         auto& tc = GetControls(type, group);
-        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PROPERTIES"]);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PARAMETERS"]);
         if (!listWidget->currentItem())
             return;
         QString propertyName = listWidget->currentItem()->text();
@@ -1058,10 +1076,10 @@ void MainWindow::on_ListControlClicked()
         modified_ = true;
         UpdateWindowTitle();
     }
-    else if (group == ControlsGroup::PropertyList && name == "PROPERTIES" && action == "up")
+    else if (group == ControlsGroup::Parameters && name == "PARAMETERS" && action == "up")
     {
         auto& tc = GetControls(type, group);
-        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PROPERTIES"]);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PARAMETERS"]);
         if (listWidget->currentItem() == nullptr)
             return;
         QString propertyName = listWidget->currentItem()->text();
@@ -1083,10 +1101,10 @@ void MainWindow::on_ListControlClicked()
         modified_ = true;
         UpdateWindowTitle();
     }
-    else if (group == ControlsGroup::PropertyList && name == "PROPERTIES" && action == "down")
+    else if (group == ControlsGroup::Parameters && name == "PARAMETERS" && action == "down")
     {
         auto& tc = GetControls(type, group);
-        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PROPERTIES"]);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PARAMETERS"]);
         if (listWidget->currentItem() == nullptr)
             return;
         QString propertyName = listWidget->currentItem()->text();
@@ -1922,7 +1940,7 @@ void MainWindow::on_EditingFinished()
     else if (group == MainWindow::ControlsGroup::Properties && name == "NAME")
     {
         // Property NAME
-        QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc.Parameters["PARAMETERS"]);
         if (listWidget->selectedItems().size() == 0) return; // !!!
 
         QString oldName = listWidget->selectedItems()[0]->text();
@@ -2030,7 +2048,7 @@ void MainWindow::UpdateMain()
     qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setText(QString::fromStdString(fileInfo_.info.wiki));
     qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setCursorPosition(0);
 
-    QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+    QListWidget* listWidget = qobject_cast<QListWidget*>(tc.Parameters["PARAMETERS"]);
     for (const auto& pi : fileInfo_.parameters)
         listWidget->addItem(QString::fromStdString(pi.name));
     if (listWidget->count() > 0)
@@ -2057,7 +2075,7 @@ void MainWindow::UpdateType(QString type)
     for (const auto& v : ti->includes)
         listWidgetIncludes->addItem(QString::fromStdString(v));
 
-    QListWidget* listWidget = qobject_cast<QListWidget*>(tc.PropertyList["PROPERTIES"]);
+    QListWidget* listWidget = qobject_cast<QListWidget*>(tc.Parameters["PARAMETERS"]);
     listWidget->clear();
     for (const auto& pi : ti->parameters)
         listWidget->addItem(QString::fromStdString(pi.name));
@@ -2127,17 +2145,11 @@ void MainWindow::SaveAs()
     }
 }
 
-void MainWindow::on_FocusChanged(bool focus)
+void MainWindow::on_FocusChanged(QObject* sender, bool focus)
 {
-    if (!focus)
-    {
-        plainTextEditHint_->clear();
-        return;
-    }
-
-    QString type = sender()->property("type").toString();
-    ControlsGroup group = static_cast<ControlsGroup>(sender()->property("group").toInt());
-    QString name = sender()->property("name").toString();
+    QString type = sender->property("type").toString();
+    ControlsGroup group = static_cast<ControlsGroup>(sender->property("group").toInt());
+    QString name = sender->property("name").toString();
 
     parameters_compiler::struct_types st;
     if (type == "Main")
@@ -2146,6 +2158,8 @@ void MainWindow::on_FocusChanged(bool focus)
             st = parameters_compiler::struct_types::info_info;
         else if (group == ControlsGroup::Properties)
             st = parameters_compiler::struct_types::parameter_info;
+        else if (group == ControlsGroup::Parameters)
+            st = parameters_compiler::struct_types::file_info;
     }
     else
     {
@@ -2153,9 +2167,16 @@ void MainWindow::on_FocusChanged(bool focus)
             st = parameters_compiler::struct_types::type_info;
         else if (group == ControlsGroup::Properties)
             st = parameters_compiler::struct_types::parameter_info;
+        else if (group == ControlsGroup::Parameters)
+            st = parameters_compiler::struct_types::type_info;
     }
 
     QString text = QString::fromLocal8Bit(parameters_compiler::helper::get_hint_html(st, name.toStdString()).c_str());
+
+    // restrictions_info is a part of parameter_info, but on gui we not divide it
+    if (text == "" && st == parameters_compiler::struct_types::parameter_info)
+        text = QString::fromLocal8Bit(parameters_compiler::helper::get_hint_html(parameters_compiler::struct_types::restrictions_info, name.toStdString()).c_str());
+
     plainTextEditHint_->clear();
     plainTextEditHint_->appendHtml(QString("<p style='font-weight: bold; font-size: 14px;'>%1</p>").arg(name));
     plainTextEditHint_->appendHtml(text);
