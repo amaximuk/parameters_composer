@@ -242,10 +242,15 @@ void MainWindow::on_SaveFile_action()
             return;
         }
 
-        if (!parameters_compiler::helper::rearrange_types(fileInfo_))
+        bool have_type_loop = false;
+        if (!parameters_compiler::helper::rearrange_types(fileInfo_, have_type_loop))
         {
-            QMessageBox::critical(this, "Rearrange error", QString::fromLocal8Bit("Возможно, петля в типах"));
+            QMessageBox::critical(this, "Rearrange error", QString::fromLocal8Bit("Ошибка переупорядочивания пользовательских типов перед сохранением"));
             return;
+        }
+        else if (have_type_loop)
+        {
+            QMessageBox::warning(this, "Rearrange", QString::fromLocal8Bit("Обнаружена циклицеская зависимость в типах.\nФайл будет сохранен, но эта логическая ошибка требует исправления!"));
         }
 
         if (is_json_)
@@ -2121,10 +2126,15 @@ void MainWindow::SaveAs()
             return;
         }
 
-        if (!parameters_compiler::helper::rearrange_types(fileInfo_))
+        bool have_type_loop = false;
+        if (!parameters_compiler::helper::rearrange_types(fileInfo_, have_type_loop))
         {
-            QMessageBox::critical(this, "Rearrange error", QString::fromLocal8Bit("Возможно, петля в типах"));
+            QMessageBox::critical(this, "Rearrange error", QString::fromLocal8Bit("Ошибка переупорядочивания пользовательских типов перед сохранением"));
             return;
+        }
+        else if (have_type_loop)
+        {
+            QMessageBox::warning(this, "Rearrange", QString::fromLocal8Bit("Обнаружена циклицеская зависимость в типах.\nФайл будет сохранен, но эта логическая ошибка требует исправления!"));
         }
 
         if (selectedFilter == "Parameters Compiler JSON Files (*.json)")

@@ -482,9 +482,10 @@ namespace parameters_compiler
             return true;
         }
 
-        static bool rearrange_types(file_info& fi)
+        static bool rearrange_types(file_info& fi, bool& have_type_loop)
         {
             QList<QString> sorted_names;
+            have_type_loop = false;
             bool found_new = true;
             while (found_new)
             {
@@ -520,6 +521,7 @@ namespace parameters_compiler
             if (fi.types.size() > sorted_names.size())
             {
                 // Type loop found
+                have_type_loop = true;
                 for (const auto& ti : fi.types)
                 {
                     QString tn = QString::fromStdString(ti.name);
