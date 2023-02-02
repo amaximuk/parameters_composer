@@ -16,6 +16,8 @@
 #include <QFileDialog>
 #include <QCloseEvent>
 #include <QComboBox>
+#include <QProcess>
+#include <QDesktopServices>
 
 #include "parameters_compiler_helper.h"
 #include "yaml_parser.h"
@@ -352,7 +354,7 @@ void MainWindow::on_RemoveType_action()
         QString message = QString::fromLocal8Bit("Тип %1 используется в других типах:\n").arg(name);
         for (const auto& s : usedInTypes)
             message += s + "\n";
-        QMessageBox::StandardButton resBtn = QMessageBox::critical(this, "parameters_composer", message);
+        QMessageBox::critical(this, "parameters_composer", message);
         return;
     }
 
@@ -364,6 +366,160 @@ void MainWindow::on_RemoveType_action()
 
     modified_ = true;
     UpdateWindowTitle();
+}
+
+void MainWindow::on_Compile_action()
+{
+    if (Compile())
+        QMessageBox::information(this, "parameters_composer", QString::fromLocal8Bit("Файл успешно скомпилирован"));
+}
+
+bool MainWindow::Compile()
+{
+    QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
+    if (!SaveAsInternal(QDir(workingDir).filePath("temp.yml"), false, true))
+    {
+        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Ошибка при сохранении файла YAML"));
+        return false;
+    }
+
+    if (!SaveAsInternal(QDir(workingDir).filePath("temp.json"), true, true))
+    {
+        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Ошибка при сохранении файла JSON"));
+        return false;
+    }
+
+    QProcess processYaml;
+    processYaml.setProgram(QDir(workingDir).filePath("parameters_compiler.exe"));
+    processYaml.setArguments({ "temp.yml", "-o", "-t" });
+    processYaml.setWorkingDirectory(workingDir);
+    processYaml.start();
+    if (!processYaml.waitForFinished(1000) || processYaml.exitCode() != 0)
+    {
+        QString output(processYaml.readAllStandardOutput());
+        if (output == "") output = QString::fromLocal8Bit("Неизвестная ошибка");
+        QMessageBox::critical(this, "Compile YAML", output);
+        return false;
+    }
+
+    QProcess processJson;
+    processJson.setProgram(QDir(workingDir).filePath("parameters_compiler.exe"));
+    processJson.setArguments({ "temp.json", "-o", "-t" });
+    processJson.setWorkingDirectory(workingDir);
+    processJson.start();
+    if (!processJson.waitForFinished(1000) || processJson.exitCode() != 0)
+    {
+        QString output(processJson.readAllStandardOutput());
+        if (output == "") output = QString::fromLocal8Bit("Неизвестная ошибка");
+        QMessageBox::critical(this, "Compile JSON", output);
+        return false;
+    }
+
+    QFile fileYaml(QDir(workingDir).filePath("temp.yml.h"));
+    if (!fileYaml.open(QIODevice::ReadOnly))
+    {
+        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл кода, скомпилированный из YAML не найден"));
+        return false;
+    }
+
+    QFile fileJson(QDir(workingDir).filePath("temp.json.h"));
+    if (!fileJson.open(QIODevice::ReadOnly))
+    {
+        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл JSON не найден"));
+        return false;
+    }
+
+    if (fileYaml.size() != fileJson.size())
+    {
+        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файлы YAML и JSON отличаются по размеру"));
+        return false;
+    }
+
+    QByteArray bytesYaml = fileYaml.readAll();
+    QByteArray bytesJson = fileJson.readAll();
+    if (!std::equal(bytesYaml.cbegin(), bytesYaml.cend(), bytesJson.cbegin()))
+    {
+        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файлы YAML и JSON отличаются по содержимому"));
+        return false;
+    }
+
+    return true;
+}
+
+void MainWindow::on_ViewYaml_action()
+{
+    if (Compile())
+    {
+        QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
+        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.yml")))
+        {
+            QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл temp.yml не найден.\nЗапустите компиляцию!"));
+            return;
+        }
+        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.yml"))));
+    }
+}
+
+void MainWindow::on_ViewJson_action()
+{
+    if (Compile())
+    {
+        QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
+        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.json")))
+        {
+            QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл temp.json не найден.\nЗапустите компиляцию!"));
+            return;
+        }
+        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.json"))));
+    }
+}
+
+void MainWindow::on_ViewCode_action()
+{
+    if (Compile())
+    {
+        QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
+        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.yml.h")))
+        {
+            QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл temp.yml.h не найден.\nЗапустите компиляцию!"));
+            return;
+        }
+        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.yml.h"))));
+    }
+}
+
+void MainWindow::on_ViewHtml_action()
+{
+    if (Compile())
+    {
+        QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
+        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.yml.html")))
+        {
+            QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл temp.yml.html не найден.\nЗапустите компиляцию!"));
+            return;
+        }
+        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.yml.html"))));
+    }
+}
+
+void MainWindow::on_OpenFolder_action()
+{
+    if (Compile())
+    {
+        QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
+        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(workingDir)));
+    }
+}
+
+void MainWindow::on_Help_action()
+{
+    QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
+    if (!QFileInfo::exists(QDir(workingDir).filePath("parameters_compiler.docx")))
+    {
+        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл parameters_compiler.docx не найден"));
+        return;
+    }
+    QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("parameters_compiler.docx"))));
 }
 
 void MainWindow::CreateMenu()
@@ -412,6 +568,47 @@ void MainWindow::CreateMenu()
     QMenu* typeMenu = menuBar()->addMenu(QString::fromLocal8Bit("Типы"));
     typeMenu->addAction(addTypeAct);
     typeMenu->addAction(removeTypeAct);
+
+    QAction* compileAct = new QAction(QString::fromLocal8Bit("Тест компиляции"), this);
+    compileAct->setStatusTip(QString::fromLocal8Bit("Компилировать временный файл"));
+    connect(compileAct, &QAction::triggered, this, &MainWindow::on_Compile_action);
+
+    QAction* viewYamlAct = new QAction(QString::fromLocal8Bit("Просмотр YAML"), this);
+    viewYamlAct->setStatusTip(QString::fromLocal8Bit("Предварительный просмотр YAML файла"));
+    connect(viewYamlAct, &QAction::triggered, this, &MainWindow::on_ViewYaml_action);
+
+    QAction* viewJsonAct = new QAction(QString::fromLocal8Bit("Просмотр JSON"), this);
+    viewJsonAct->setStatusTip(QString::fromLocal8Bit("Предварительный просмотр JSON файла"));
+    connect(viewJsonAct, &QAction::triggered, this, &MainWindow::on_ViewJson_action);
+
+    QAction* viewCodeAct = new QAction(QString::fromLocal8Bit("Просмотр кода"), this);
+    viewCodeAct->setStatusTip(QString::fromLocal8Bit("Предварительный просмотр .h файла"));
+    connect(viewCodeAct, &QAction::triggered, this, &MainWindow::on_ViewCode_action);
+
+    QAction* viewHtmlAct = new QAction(QString::fromLocal8Bit("Просмотр HTML"), this);
+    viewHtmlAct->setStatusTip(QString::fromLocal8Bit("Предварительный просмотр HTML файла"));
+    connect(viewHtmlAct, &QAction::triggered, this, &MainWindow::on_ViewHtml_action);
+
+    QAction* openFolderAct = new QAction(QString::fromLocal8Bit("Показать в папке"), this);
+    openFolderAct->setStatusTip(QString::fromLocal8Bit("Показать файлы в папке"));
+    connect(openFolderAct, &QAction::triggered, this, &MainWindow::on_OpenFolder_action);
+
+    QMenu* compileMenu = menuBar()->addMenu(QString::fromLocal8Bit("Компилятор"));
+    compileMenu->addAction(compileAct);
+    compileMenu->addSeparator();
+    compileMenu->addAction(viewYamlAct);
+    compileMenu->addAction(viewJsonAct);
+    compileMenu->addAction(viewCodeAct);
+    compileMenu->addAction(viewHtmlAct);
+    compileMenu->addSeparator();
+    compileMenu->addAction(openFolderAct);
+
+    QAction* helpAct = new QAction(QString::fromLocal8Bit("Открыть описание"), this);
+    helpAct->setStatusTip(QString::fromLocal8Bit("Открыть описание формата конфигурационных файлов"));
+    connect(helpAct, &QAction::triggered, this, &MainWindow::on_Help_action);
+
+    QMenu* helpMenu = menuBar()->addMenu(QString::fromLocal8Bit("Помощь"));
+    helpMenu->addAction(helpAct);
 }
 
 void MainWindow::CreateUi()
@@ -2108,51 +2305,59 @@ void MainWindow::SaveAs()
     QStringList fileNames;
     if (dialog.exec())
         fileNames = dialog.selectedFiles();
+    if (fileNames.size() <= 0)
+        return;
 
-    QString selectedFilter = dialog.selectedNameFilter();
+    bool is_json = (dialog.selectedNameFilter() == "Parameters Compiler JSON Files (*.json)");
+    QString fileName = fileNames[0];
+    SaveAsInternal(fileName, is_json, false);
+}
 
-    if (fileNames.size() > 0)
+bool MainWindow::SaveAsInternal(QString fileName, bool is_json, bool is_temp)
+{
+    if (!ReadCurrentFileInfo())
+        return false;
+
+    parameters_compiler::file_info fi = fileInfo_;
+
+    std::string message;
+    if (!parameters_compiler::helper::validate(fi, message))
     {
-        qDebug() << fileNames[0];
-        qDebug() << selectedFilter;
+        QMessageBox::critical(this, "Validate error", QString::fromLocal8Bit(message.c_str()));
+        return false;
+    }
 
-        if (!ReadCurrentFileInfo())
-            return;
+    bool have_type_loop = false;
+    if (!parameters_compiler::helper::rearrange_types(fi, have_type_loop))
+    {
+        QMessageBox::critical(this, "Rearrange error", QString::fromLocal8Bit("Ошибка переупорядочивания пользовательских типов перед сохранением"));
+        return false;
+    }
+    else if (have_type_loop)
+    {
+        QMessageBox::warning(this, "Rearrange", QString::fromLocal8Bit("Обнаружена циклицеская зависимость в типах.\nФайл будет сохранен, но эта логическая ошибка требует исправления!"));
+    }
 
-        std::string message;
-        if (!parameters_compiler::helper::validate(fileInfo_, message))
-        {
-            QMessageBox::critical(this, "Validate error", QString::fromLocal8Bit(message.c_str()));
-            return;
-        }
+    if (is_json)
+    {
+        if (!json::writer::write(fileName.toStdString(), fi))
+            return false;
+    }
+    else
+    {
+        if (!yaml::writer::write(fileName.toStdString(), fi))
+            return false;
+    }
 
-        bool have_type_loop = false;
-        if (!parameters_compiler::helper::rearrange_types(fileInfo_, have_type_loop))
-        {
-            QMessageBox::critical(this, "Rearrange error", QString::fromLocal8Bit("Ошибка переупорядочивания пользовательских типов перед сохранением"));
-            return;
-        }
-        else if (have_type_loop)
-        {
-            QMessageBox::warning(this, "Rearrange", QString::fromLocal8Bit("Обнаружена циклицеская зависимость в типах.\nФайл будет сохранен, но эта логическая ошибка требует исправления!"));
-        }
-
-        if (selectedFilter == "Parameters Compiler JSON Files (*.json)")
-        {
-            if (!json::writer::write(fileNames[0].toStdString(), fileInfo_))
-                return;
-        }
-        else
-        {
-            if (!yaml::writer::write(fileNames[0].toStdString(), fileInfo_))
-                return;
-        }
-
-        currentFileName_ = fileNames[0];
+    if (!is_temp)
+    {
+        currentFileName_ = fileName;
         modified_ = false;
-        is_json_ = selectedFilter == "Parameters Compiler JSON Files (*.json)";
+        is_json_ = is_json;
         UpdateWindowTitle();
     }
+
+    return true;
 }
 
 void MainWindow::on_FocusChanged(QObject* sender, bool focus)

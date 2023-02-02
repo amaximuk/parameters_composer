@@ -13,12 +13,10 @@ public:
 	{
 		if (event->type() == QEvent::FocusIn)
 		{
-			qDebug("Ate key press QEvent::FocusIn");
 			emit onFocusChanged(obj, true);
 		}
 		else if (event->type() == QEvent::FocusOut)
 		{
-			qDebug("Ate key press QEvent::FocusOut");
 			emit onFocusChanged(obj, false);
 		}
 

@@ -55,6 +55,13 @@ private slots:
     void on_Quit_action();
     void on_AddType_action();
     void on_RemoveType_action();
+    void on_Compile_action();
+    void on_ViewYaml_action();
+    void on_ViewJson_action();
+    void on_ViewCode_action();
+    void on_ViewHtml_action();
+    void on_OpenFolder_action();
+    void on_Help_action();
 
 private:
     void CreateUi();
@@ -106,6 +113,8 @@ private:
     void UpdateWindowTitle();
 
     void SaveAs();
+    bool SaveAsInternal(QString fileName, bool is_json, bool is_temp);
+    bool Compile();
 
 private slots:
     void on_ListControlClicked();
