@@ -18,6 +18,7 @@
 #include <QComboBox>
 #include <QProcess>
 #include <QDesktopServices>
+#include <QSettings>
 
 #include "parameters_compiler_helper.h"
 #include "yaml_parser.h"
@@ -41,6 +42,12 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+}
+
+bool MainWindow::OpenFile(QString fileName)
+{
+    bool is_json = (QFileInfo(fileName).suffix() == "json");
+    return OpenFileInternal(fileName, is_json);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
@@ -184,12 +191,27 @@ void MainWindow::on_OpenFile_action()
     if (fileNames.size() == 0)
         return;
 
-    qDebug() << fileNames[0];
-    parameters_compiler::file_info fi{};
-    if (!yaml::parser::parse(fileNames[0].toStdString(), fi))
+    bool is_json = (dialog.selectedNameFilter() == "Parameters Compiler JSON Files (*.json)");
+
+    OpenFileInternal(fileNames[0], is_json);
+}
+
+bool MainWindow::OpenFileInternal(QString fileName, bool is_json)
+{
+    qDebug() << "Opening " << fileName;
+
+    if (!QFile::exists(fileName))
     {
-        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Ошибка разбора файла %1").arg(fileNames[0]));
-        return;
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не найден").arg(fileName));
+        RemoveRecent(fileName);
+        return false;
+    }
+
+    parameters_compiler::file_info fi{};
+    if (!yaml::parser::parse(fileName.toStdString(), fi))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Ошибка разбора файла %1").arg(fileName));
+        return false;
     }
 
     while (tabWidget_->count() > 1)
@@ -211,9 +233,103 @@ void MainWindow::on_OpenFile_action()
 
     FillPropertyTypeNames();
 
-    currentFileName_ = fileNames[0];
+    currentFileName_ = fileName;
     modified_ = false;
     UpdateWindowTitle();
+    AddRecent(fileName);
+
+    return true;
+}
+
+void MainWindow::UpdateRecent()
+{
+    recentMenu_->clear();
+
+    QSettings app_settings("settings.ini", QSettings::IniFormat);
+    int recent_count = app_settings.value("recent/count", "0").toInt();
+    if (recent_count == 0)
+    {
+        QAction* recentAct = new QAction(QString::fromLocal8Bit("<список пуст>"), this);
+        recentAct->setStatusTip(QString::fromLocal8Bit("Список пуст"));
+        recentMenu_->addAction(recentAct);
+    }
+    else
+    {
+        for (int i = 0; i < recent_count; i++)
+        {
+            QString name = QString("recent/filename_%1").arg(i);
+            QString path = app_settings.value(name, "").toString();
+            QAction* recentAct = new QAction(path, this);
+            recentAct->setStatusTip(QString::fromLocal8Bit("Открыть файл %1").arg(path));
+            connect(recentAct, &QAction::triggered, this, &MainWindow::on_Recent_action);
+            recentMenu_->addAction(recentAct);
+        }
+    }
+}
+
+void MainWindow::AddRecent(QString fileName)
+{
+    QSettings app_settings("settings.ini", QSettings::IniFormat);
+    int recent_count = app_settings.value("recent/count", "0").toInt();
+    QList<QString> list;
+    for (int i = 0; i < recent_count; i++)
+    {
+        QString name = QString("recent/filename_%1").arg(i);
+        QString path = app_settings.value(name, "").toString();
+        list.push_back(path);
+    }
+
+    app_settings.beginGroup("recent");
+    app_settings.remove(""); //removes the group, and all it keys
+    app_settings.endGroup();
+
+    if (list.contains(fileName))
+        list.removeAll(fileName);
+    list.push_front(fileName);
+    while (list.size() > 10)
+        list.pop_back();
+
+    app_settings.setValue("recent/count", list.size());
+    for (int i = 0; i < list.size(); i++)
+    {
+        QString name = QString("recent/filename_%1").arg(i);
+        app_settings.setValue(name, list[i]);
+    }
+    app_settings.sync();
+
+    UpdateRecent();
+}
+
+void MainWindow::RemoveRecent(QString fileName)
+{
+    QSettings app_settings("settings.ini", QSettings::IniFormat);
+    int recent_count = app_settings.value("recent/count", "0").toInt();
+    QList<QString> list;
+    for (int i = 0; i < recent_count; i++)
+    {
+        QString name = QString("recent/filename_%1").arg(i);
+        QString path = app_settings.value(name, "").toString();
+        list.push_back(path);
+    }
+
+    app_settings.beginGroup("recent");
+    app_settings.remove(""); //removes the group, and all it keys
+    app_settings.endGroup();
+
+    if (list.contains(fileName))
+        list.removeAll(fileName);
+    while (list.size() > 10)
+        list.pop_back();
+
+    app_settings.setValue("recent/count", list.size());
+    for (int i = 0; i < list.size(); i++)
+    {
+        QString name = QString("recent/filename_%1").arg(i);
+        app_settings.setValue(name, list[i]);
+    }
+    app_settings.sync();
+
+    UpdateRecent();
 }
 
 void MainWindow::on_SaveFile_action()
@@ -522,6 +638,12 @@ void MainWindow::on_Help_action()
     QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("parameters_compiler.pdf"))));
 }
 
+void MainWindow::on_Recent_action()
+{
+    QAction* act = qobject_cast<QAction*>(sender());
+    OpenFile(act->text());
+}
+
 void MainWindow::CreateMenu()
 {
     QAction* newAct = new QAction(QString::fromLocal8Bit("Создать"), this);
@@ -554,6 +676,8 @@ void MainWindow::CreateMenu()
     fileMenu->addAction(openAct);
     fileMenu->addAction(saveAct);
     fileMenu->addAction(saveAsAct);
+    fileMenu->addSeparator();
+    recentMenu_ = fileMenu->addMenu(QString::fromLocal8Bit("Недавние файлы"));
     fileMenu->addSeparator();
     fileMenu->addAction(quitAct);
 
@@ -609,6 +733,8 @@ void MainWindow::CreateMenu()
 
     QMenu* helpMenu = menuBar()->addMenu(QString::fromLocal8Bit("Помощь"));
     helpMenu->addAction(helpAct);
+
+    UpdateRecent();
 }
 
 void MainWindow::CreateUi()

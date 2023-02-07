@@ -39,10 +39,12 @@ private:
     QTabWidget* tabWidget_;
     QPlainTextEdit* plainTextEditHint_;
     FocusFilter* focusFilter_;
+    QMenu* recentMenu_;
 
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+    bool OpenFile(QString fileName);
 
 private:
     void closeEvent(QCloseEvent* event) override;
@@ -62,6 +64,7 @@ private slots:
     void on_ViewHtml_action();
     void on_OpenFolder_action();
     void on_Help_action();
+    void on_Recent_action();
 
 private:
     void CreateUi();
@@ -115,6 +118,10 @@ private:
     void SaveAs();
     bool SaveAsInternal(QString fileName, bool is_json, bool is_temp);
     bool Compile();
+    bool OpenFileInternal(QString fileName, bool is_json);
+    void UpdateRecent();
+    void AddRecent(QString fileName);
+    void RemoveRecent(QString fileName);
 
 private slots:
     void on_ListControlClicked();
