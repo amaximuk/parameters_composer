@@ -245,7 +245,8 @@ void MainWindow::UpdateRecent()
 {
     recentMenu_->clear();
 
-    QSettings app_settings("settings.ini", QSettings::IniFormat);
+    QString iniFileName = QDir(QCoreApplication::applicationDirPath()).filePath("settings.ini");
+    QSettings app_settings(iniFileName, QSettings::IniFormat);
     int recent_count = app_settings.value("recent/count", "0").toInt();
     if (recent_count == 0)
     {
@@ -269,13 +270,15 @@ void MainWindow::UpdateRecent()
 
 void MainWindow::AddRecent(QString fileName)
 {
-    QSettings app_settings("settings.ini", QSettings::IniFormat);
+    QString iniFileName = QDir(QCoreApplication::applicationDirPath()).filePath("settings.ini");
+    QSettings app_settings(iniFileName, QSettings::IniFormat);
     int recent_count = app_settings.value("recent/count", "0").toInt();
     QList<QString> list;
     for (int i = 0; i < recent_count; i++)
     {
         QString name = QString("recent/filename_%1").arg(i);
         QString path = app_settings.value(name, "").toString();
+        path.replace("\\", "/");
         list.push_back(path);
     }
 
@@ -283,6 +286,7 @@ void MainWindow::AddRecent(QString fileName)
     app_settings.remove(""); //removes the group, and all it keys
     app_settings.endGroup();
 
+    fileName.replace("\\", "/");
     if (list.contains(fileName))
         list.removeAll(fileName);
     list.push_front(fileName);
@@ -302,13 +306,15 @@ void MainWindow::AddRecent(QString fileName)
 
 void MainWindow::RemoveRecent(QString fileName)
 {
-    QSettings app_settings("settings.ini", QSettings::IniFormat);
+    QString iniFileName = QDir(QCoreApplication::applicationDirPath()).filePath("settings.ini");
+    QSettings app_settings(iniFileName, QSettings::IniFormat);
     int recent_count = app_settings.value("recent/count", "0").toInt();
     QList<QString> list;
     for (int i = 0; i < recent_count; i++)
     {
         QString name = QString("recent/filename_%1").arg(i);
         QString path = app_settings.value(name, "").toString();
+        path.replace("\\", "/");
         list.push_back(path);
     }
 
@@ -316,6 +322,7 @@ void MainWindow::RemoveRecent(QString fileName)
     app_settings.remove(""); //removes the group, and all it keys
     app_settings.endGroup();
 
+    fileName.replace("\\", "/");
     if (list.contains(fileName))
         list.removeAll(fileName);
     while (list.size() > 10)
