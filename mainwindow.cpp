@@ -24,7 +24,14 @@
 #include "yaml_parser.h"
 #include "yaml_writer.h"
 #include "json_writer.h"
+#include "refactoring_helper.h"
 #include "mainwindow.h"
+
+//#ifdef _WIN32 
+//const QString eol("\r\n");
+//#else
+//const QString eol("\n");
+//#endif
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -170,6 +177,22 @@ void MainWindow::on_Quit_action()
     }
 }
 
+void MainWindow::on_Apply_action()
+{
+    QFileDialog dialog(this);
+    dialog.setNameFilter("CMake Files (CMakeLists.txt)");
+    dialog.setAcceptMode(QFileDialog::AcceptOpen);
+
+    QStringList fileNames;
+    if (dialog.exec())
+        fileNames = dialog.selectedFiles();
+
+    if (fileNames.size() == 0)
+        return;
+
+    ApplyInternal(fileNames[0]);
+}
+
 void MainWindow::on_OpenFile_action()
 {
     if (modified_)
@@ -237,6 +260,334 @@ bool MainWindow::OpenFileInternal(QString fileName, bool is_json)
     modified_ = false;
     UpdateWindowTitle();
     AddRecent(fileName);
+
+    return true;
+}
+
+bool MainWindow::ApplyInternal(QString fileName)
+{
+    qDebug() << "Apply to " << fileName;
+
+    if (!QFile::exists(fileName))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не найден").arg(fileName));
+        return false;
+    }
+
+    QString cmake_text;
+    if (!refactoring::helper::read_file(fileName, "UTF-8", cmake_text))
+        return false;
+
+
+
+
+    int target_name_index = cmake_text.indexOf("set(TARGET_NAME ");
+    if (target_name_index == -1)
+        return false;
+    target_name_index = cmake_text.indexOf(" ", target_name_index);
+    if (target_name_index == -1)
+        return false;
+    target_name_index++;
+    int target_name_close_index = cmake_text.indexOf(")", target_name_index);
+    if (target_name_close_index == -1)
+        return false;
+    QString target_name = cmake_text.mid(target_name_index, target_name_close_index - target_name_index);
+
+    //int add_lybrary_index = cmake_text.indexOf("# добавление библиотеки в проект");
+
+    int add_library_index = cmake_text.indexOf("add_library");
+    if (add_library_index == -1)
+        return false;
+    int add_library_close_index = cmake_text.indexOf(")", add_library_index);
+    if (add_library_close_index == -1)
+        return false;
+
+    int add_library_before_index = cmake_text.lastIndexOf("\n\n", add_library_index);
+    if (add_library_before_index == -1)
+        return false;
+    int add_library_after_index = cmake_text.indexOf("\n\n", add_library_index);
+    if (add_library_after_index == -1)
+    {
+        if (cmake_text.endsWith("\n") || cmake_text.endsWith("\n\t"))
+        {
+            add_library_after_index = cmake_text.size();
+        }
+        else
+        {
+            add_library_after_index = cmake_text.size() + 1;
+            cmake_text.append("\n");
+        }
+    }
+
+    // # генерируем файл параметров, заполняем PROJECT_PARAMETERS
+    // prepare_compile_parameters()
+    // ${PROJECT_PARAMETERS}
+    // # подписка для обновления параметров
+    // add_compile_parameters(${TARGET_NAME})
+
+    QString result_text;
+    QString string;
+    int index = 0;
+
+    string = cmake_text.left(add_library_before_index + 1);
+    result_text.append(string);
+    index = add_library_before_index + 1;
+
+    string = QString::fromLocal8Bit("\n# генерируем файл параметров, заполняем PROJECT_PARAMETERS\n");
+    result_text.append(string);
+
+    string = QString::fromLocal8Bit("prepare_compile_parameters()\n");
+    result_text.append(string);
+
+    string = cmake_text.mid(index, add_library_close_index - index);
+    result_text.append(string);
+    index += add_library_close_index - index;
+
+    string = QString::fromLocal8Bit(" ${PROJECT_PARAMETERS})");
+    result_text.append(string);
+    index += 1; // ")"
+
+    string = cmake_text.mid(index, add_library_after_index - index + 1);
+    result_text.append(string);
+    index += add_library_after_index - index + 1;
+
+    string = QString::fromLocal8Bit("\n# подписка для обновления параметров\n");
+    result_text.append(string);
+
+    string = QString::fromLocal8Bit("add_compile_parameters(${TARGET_NAME})\n");
+    result_text.append(string);
+
+    if (cmake_text.length() > index)
+    {
+        string = cmake_text.right(cmake_text.length() - index);
+        result_text.append(string);
+    }
+
+    QString params_path = QFileInfo(fileName).absoluteDir().filePath("params");
+    if (!QFile::exists(params_path))
+        if (!QDir().mkpath(params_path))
+            return false;
+
+    QString target_file_name = QString("%1%2").arg(target_name, ".yml");
+    QString params_file_name = QDir(params_path).filePath(target_file_name);
+
+    QFile fw(params_file_name);
+    if (!fw.open(QFile::ReadWrite | QFile::Text))
+        return false;
+    QTextStream out(&fw);
+    out.setCodec("UTF-8");
+    out << result_text;
+    fw.close();
+
+    QString lib_class_file_name;
+    if (QFile::exists(QFileInfo(fileName).absoluteDir().filePath("lib_class_name.h")))
+        lib_class_file_name = QFileInfo(fileName).absoluteDir().filePath("lib_class_name.h");
+    else if (QFile::exists(QFileInfo(fileName).absoluteDir().filePath("src/lib_class_name.h")))
+        lib_class_file_name = QFileInfo(fileName).absoluteDir().filePath("src/lib_class_name.h");
+    else
+        return false;
+
+    QFile frl(lib_class_file_name);
+    if (!frl.open(QFile::ReadOnly | QFile::Text))
+        return false;
+    QTextStream inl(&frl);
+    inl.setCodec("windows-1251");
+    QString lib_class_text = inl.readAll();
+    //lib_class_text = "#define LIBRARY_CLASS_NAME Rpu6CanReceiver";
+    frl.close();
+
+    QString class_name;
+    QRegularExpression re(R"wwww(^#define LIBRARY_CLASS_NAME (?<name>\w*))wwww");
+    re.setPatternOptions(QRegularExpression::MultilineOption);
+    QRegularExpressionMatch match = re.match(lib_class_text);
+    if (match.hasMatch())
+        class_name = match.captured("name");
+
+    QString include_file;
+    QRegularExpression re2(R"wwww(^#include "(?<include>.*)")wwww");
+    re2.setPatternOptions(QRegularExpression::MultilineOption);
+    QRegularExpressionMatch match2 = re2.match(lib_class_text);
+    if (match2.hasMatch())
+        include_file = match2.captured("include");
+
+
+
+
+    QString include_file_name = QFileInfo(fileName).absoluteDir().filePath(include_file);
+    QFile frcl(include_file_name);
+    if (!frcl.open(QFile::ReadOnly | QFile::Text))
+        return false;
+    QTextStream incl(&frcl);
+    incl.setCodec("windows-1251");
+    QString include_text = incl.readAll();
+    //lib_class_text = "#define LIBRARY_CLASS_NAME Rpu6CanReceiver";
+    frcl.close();
+
+
+
+    int class_include_index = include_text.indexOf("#include \"base_library/base_library.h\"");
+    if (class_include_index == -1)
+        return false;
+    int class_include_close_index = include_text.indexOf("\n", class_include_index);
+    if (class_include_close_index == -1)
+        return false;
+
+
+    QString class_class_name = QString("class %1").arg(class_name);
+    int class_class_index = include_text.indexOf(class_class_name);
+    if (class_class_index == -1)
+        return false;
+    class_class_index = include_text.indexOf("{", class_class_index);
+    if (class_class_index == -1)
+        return false;
+    class_class_index++;
+    if (include_text.length() <= class_class_index)
+        return false;
+
+    QString result_header;
+
+    string = include_text.left(class_include_close_index);
+    result_header.append(string);
+    index = class_include_close_index;
+
+    string = QString::fromLocal8Bit("\n#include \"%1.yml.h\"").arg(target_name);
+    result_header.append(string);
+
+    string = include_text.mid(index, class_class_index - index + 1);
+    result_header.append(string);
+    index += class_class_index - index + 1;
+
+    string = QString::fromLocal8Bit("\nprivate:\n\tparameters_compiler::parameters parameters_;\n");
+    result_header.append(string);
+
+    string = include_text.right(include_text.length() - class_class_index);
+    result_header.append(string);
+
+
+
+
+
+
+
+    QFileInfo include_file_info(include_file_name);
+    QString cpp_file_name = include_file_info.path() + "/" + include_file_info.completeBaseName() + ".cpp";
+
+
+    QFile frclc(cpp_file_name);
+    if (!frclc.open(QFile::ReadOnly | QFile::Text))
+        return false;
+    QTextStream inclc(&frclc);
+    inclc.setCodec("windows-1251");
+    QString cpp_text = inclc.readAll();
+    //lib_class_text = "#define LIBRARY_CLASS_NAME Rpu6CanReceiver";
+    frclc.close();
+
+
+
+    QString on_set_name = QString("%1::OnSetParameters()").arg(class_name);
+    int on_set_index = cpp_text.indexOf(on_set_name);
+    if (on_set_index == -1)
+        return false;
+    on_set_index = cpp_text.indexOf("{", on_set_index);
+    if (on_set_index == -1)
+        return false;
+    on_set_index++;
+    if (cpp_text.length() <= on_set_index)
+        return false;
+
+    // find last of return core::RC_OK;
+    int on_set_close_index = cpp_text.indexOf("return core::RC_OK;", on_set_index);
+    if (on_set_close_index == -1)
+        return false;
+
+
+
+    int on_set_fn_close_index = -1;
+    int cnt = 1;
+    int pos = on_set_index;
+    while (pos < cpp_text.length())
+    {
+        int t = cpp_text.indexOf("}", pos);
+        int t1 = cpp_text.indexOf("{", pos);
+        if (t == -1)
+            break;
+        
+        if (t > t1)
+        {
+            cnt++;
+            pos = t1 == -1 ? t : t1;
+        }
+        else
+        {
+            cnt--;
+            pos = t;
+        }
+
+        if (cnt == 0)
+        {
+            on_set_fn_close_index = pos;
+            break;
+        }
+
+        pos++;
+    }
+    if (on_set_fn_close_index == -1)
+        return false;
+    QString on_set_text = cpp_text.mid(on_set_index, on_set_fn_close_index - on_set_index);
+
+
+
+
+
+
+    QStringList words;
+
+    QRegularExpression re3(R"wwww(GetParameter(\s|)\((\s|)(?<param>\w*))wwww");
+    re3.setPatternOptions(QRegularExpression::MultilineOption);
+    QRegularExpressionMatchIterator i3 = re3.globalMatch(on_set_text);
+    while (i3.hasNext())
+    {
+        QRegularExpressionMatch match = i3.next();
+        QString word = match.captured("param");
+        words << word;
+    }
+
+    QRegularExpression re4(R"wwww(GET_(NUMERIC_|)PARAMETER(_ELRC|)(\s|)\((\s|)([\w:,\s]+|)"(?<param>\w*))wwww");
+    re4.setPatternOptions(QRegularExpression::MultilineOption);
+    QRegularExpressionMatchIterator i4 = re4.globalMatch(on_set_text);
+    while (i4.hasNext())
+    {
+        QRegularExpressionMatch match = i4.next();
+        QString word = match.captured("param");
+        words << word;
+    }
+
+
+
+
+
+
+
+
+
+
+
+    QString result_cpp;
+
+    string = cpp_text.left(on_set_close_index);
+    result_cpp.append(string);
+    index = on_set_close_index;
+
+    string = QString::fromLocal8Bit("\n\tif (!parameters_compiler::parameters::parse(this, parameters_);)\n").arg(target_name);
+    result_cpp.append(string);
+    string = QString::fromLocal8Bit("\t\tERROR_LOG_RETURN_CODE(core::RC_BAD_PARAM, \"Ошибка при загрузке параметров\");\n\n\t").arg(target_name);
+    result_cpp.append(string);
+
+    if (cpp_text.length() > index)
+    {
+        string = cpp_text.right(cpp_text.length() - index);
+        result_cpp.append(string);
+    }
 
     return true;
 }
@@ -673,6 +1024,11 @@ void MainWindow::CreateMenu()
     saveAsAct->setStatusTip(QString::fromLocal8Bit("Сохранить файл как..."));
     connect(saveAsAct, &QAction::triggered, this, &MainWindow::on_SaveAsFile_action);
 
+    QAction* applyAct = new QAction(QString::fromLocal8Bit("Внедрить"), this);
+    applyAct->setShortcuts(QKeySequence::SaveAs);
+    applyAct->setStatusTip(QString::fromLocal8Bit("Внедрить в проект"));
+    connect(applyAct, &QAction::triggered, this, &MainWindow::on_Apply_action);
+
     QAction* quitAct = new QAction(QString::fromLocal8Bit("Выйти"), this);
     quitAct->setShortcuts(QKeySequence::Quit);
     quitAct->setStatusTip(QString::fromLocal8Bit("Выйти из приложения"));
@@ -683,6 +1039,8 @@ void MainWindow::CreateMenu()
     fileMenu->addAction(openAct);
     fileMenu->addAction(saveAct);
     fileMenu->addAction(saveAsAct);
+    fileMenu->addSeparator();
+    fileMenu->addAction(applyAct);
     fileMenu->addSeparator();
     recentMenu_ = fileMenu->addMenu(QString::fromLocal8Bit("Недавние файлы"));
     fileMenu->addSeparator();

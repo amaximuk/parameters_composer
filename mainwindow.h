@@ -54,6 +54,7 @@ private slots:
     void on_OpenFile_action();
     void on_SaveFile_action();
     void on_SaveAsFile_action();
+    void on_Apply_action();
     void on_Quit_action();
     void on_AddType_action();
     void on_RemoveType_action();
@@ -119,6 +120,7 @@ private:
     bool SaveAsInternal(QString fileName, bool is_json, bool is_temp);
     bool Compile();
     bool OpenFileInternal(QString fileName, bool is_json);
+    bool ApplyInternal(QString fileName);
     void UpdateRecent();
     void AddRecent(QString fileName);
     void RemoveRecent(QString fileName);
