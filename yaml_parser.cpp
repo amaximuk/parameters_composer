@@ -81,18 +81,18 @@ bool parser::get_info_info(const YAML::Node& node, parameters_compiler::info_inf
 
 	// Optional members from yml
 	if (!try_get_yaml_value<std::string>(node, "DISPLAY_NAME", ui.display_name))
-		ui.display_name = ui.id;
+		ui.display_name = "";
 	if (!try_get_yaml_value<std::string>(node, "DESCRIPTION", ui.description))
-		ui.description = ui.display_name;
+		ui.description = "";
 	ui.description = std::regex_replace(ui.description, std::regex("\r\n$|\n$"), "");
 	if (!try_get_yaml_value<std::string>(node, "CATEGORY", ui.category))
-		ui.category = "No category";
+		ui.category = "";
 	if (!try_get_yaml_value<std::string>(node, "HINT", ui.hint))
-		ui.hint = ui.id;
+		ui.hint = "";
 	if (!try_get_yaml_value<std::string>(node, "PICTOGRAM", ui.pictogram))
 		ui.pictogram = "";
 	if (!try_get_yaml_value<std::string>(node, "AUTHOR", ui.author))
-		ui.author = "Noname";
+		ui.author = "";
 	if (!try_get_yaml_value<std::string>(node, "WIKI", ui.wiki))
 		ui.wiki = "";
 
@@ -109,7 +109,7 @@ bool parser::get_type_info(const YAML::Node& node, const std::vector<parameters_
 	if (!try_get_yaml_value<std::string>(node, "TYPE", ti.type))
 		ti.type = "yml";
 	if (!try_get_yaml_value<std::string>(node, "DESCRIPTION", ti.description))
-		ti.description = ti.name;
+		ti.description = "";
 	ti.description = std::regex_replace(ti.description, std::regex("\r\n$|\n$"), "");
 
 	YAML::Node parameters = node["PARAMETERS"];
@@ -147,9 +147,9 @@ bool parser::get_parameter_info(const YAML::Node& node, const std::vector<parame
 		pi.default_ = "";
 	}
 	if (!try_get_yaml_value<std::string>(node, "DISPLAY_NAME", pi.display_name))
-		pi.display_name = pi.name;
+		pi.display_name = "";
 	if (!try_get_yaml_value<std::string>(node, "DESCRIPTION", pi.description))
-		pi.description = pi.display_name;
+		pi.description = "";
 	pi.description = std::regex_replace(pi.description, std::regex("\r\n$|\n$"), "");
 	if (!try_get_yaml_value<std::string>(node, "HINT", pi.hint))
 		pi.hint = "";

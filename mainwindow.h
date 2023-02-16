@@ -120,7 +120,7 @@ private:
     bool SaveAsInternal(QString fileName, bool is_json, bool is_temp);
     bool Compile();
     bool OpenFileInternal(QString fileName, bool is_json);
-    bool ApplyInternal(QString fileName);
+    bool ApplyInternal(QString cmakeFilePath);
     void UpdateRecent();
     void AddRecent(QString fileName);
     void RemoveRecent(QString fileName);

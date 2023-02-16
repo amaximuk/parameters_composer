@@ -179,6 +179,14 @@ void MainWindow::on_Quit_action()
 
 void MainWindow::on_Apply_action()
 {
+    if (modified_)
+    {
+        QMessageBox::StandardButton resBtn = QMessageBox::question(this, "parameters_composer",
+            QString::fromLocal8Bit("Вы действительно хотите начать внедрение?\nЭто приведет к созданию нового файла.\nВсе несохраненные изменения будут потеряны!"), QMessageBox::No | QMessageBox::Yes);
+        if (resBtn != QMessageBox::Yes)
+            return;
+    }
+
     QFileDialog dialog(this);
     dialog.setNameFilter("CMake Files (CMakeLists.txt)");
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
@@ -264,254 +272,194 @@ bool MainWindow::OpenFileInternal(QString fileName, bool is_json)
     return true;
 }
 
-bool MainWindow::ApplyInternal(QString fileName)
+bool MainWindow::ApplyInternal(QString cmakeFilePath)
 {
-    qDebug() << "Apply to " << fileName;
+    qDebug() << "Apply to " << cmakeFilePath;
 
-    if (!QFile::exists(fileName))
+    if (!QFile::exists(cmakeFilePath))
     {
-        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не найден").arg(fileName));
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не найден").arg(cmakeFilePath));
         return false;
     }
 
-    QString cmake_text;
-    if (!refactoring::helper::read_file(fileName, "UTF-8", cmake_text))
+    QString cmakeText;
+    if (!refactoring::helper::read_file(cmakeFilePath, "UTF-8", cmakeText))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не прочитан").arg(cmakeFilePath));
         return false;
+    }
 
-    QString target_name;
-    if (!refactoring::helper::get_single_value(cmake_text, R"wwww((SET|set)(\s|)\((\s|)TARGET_NAME\s(?<value>\w*))wwww", target_name))
+    QString targetName;
+    if (!refactoring::helper::get_single_value(cmakeText, R"wwww((SET|set)(\s|)\((\s|)TARGET_NAME\s(?<value>\w*))wwww", targetName))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("TARGET_NAME не найден в %1").arg(cmakeText));
         return false;
+    }
 
-    QString cmake_patched;
-    if (!refactoring::helper::patch_cmake(cmake_text, cmake_patched))
+    if (refactoring::helper::check_cmake_is_patched(cmakeText))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 уже пропатчен").arg(cmakeFilePath));
         return false;
+    }
 
 
-    QString params_path = QFileInfo(fileName).absoluteDir().filePath("params");
-    if (!QFile::exists(params_path))
-        if (!QDir().mkpath(params_path))
+    QString cmakePatched;
+    if (!refactoring::helper::patch_cmake(cmakeText, cmakePatched))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не пропатчен").arg(cmakeFilePath));
+        return false;
+    }
+
+    QString paramsPath = QFileInfo(cmakeFilePath).absoluteDir().filePath("params");
+    QString targetFileName = QString("%1%2").arg(targetName, ".yml");
+    QString paramsFilePath = QDir(paramsPath).filePath(targetFileName);
+
+    if (!QFile::exists(paramsPath))
+    {
+        if (!QDir().mkpath(paramsPath))
+        {
+            QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Не удалось создать папку %1").arg(paramsPath));
             return false;
-
-    QString target_file_name = QString("%1%2").arg(target_name, ".yml");
-    QString params_file_name = QDir(params_path).filePath(target_file_name);
-
-    QFile fw(params_file_name);
-    if (!fw.open(QFile::ReadWrite | QFile::Text))
-        return false;
-    QTextStream out(&fw);
-    out.setCodec("UTF-8");
-    out << result_text;
-    fw.close();
-
-    QString lib_class_file_name;
-    if (QFile::exists(QFileInfo(fileName).absoluteDir().filePath("lib_class_name.h")))
-        lib_class_file_name = QFileInfo(fileName).absoluteDir().filePath("lib_class_name.h");
-    else if (QFile::exists(QFileInfo(fileName).absoluteDir().filePath("src/lib_class_name.h")))
-        lib_class_file_name = QFileInfo(fileName).absoluteDir().filePath("src/lib_class_name.h");
-    else
-        return false;
-
-    QFile frl(lib_class_file_name);
-    if (!frl.open(QFile::ReadOnly | QFile::Text))
-        return false;
-    QTextStream inl(&frl);
-    inl.setCodec("windows-1251");
-    QString lib_class_text = inl.readAll();
-    //lib_class_text = "#define LIBRARY_CLASS_NAME Rpu6CanReceiver";
-    frl.close();
-
-    QString class_name;
-    QRegularExpression re(R"wwww(^#define LIBRARY_CLASS_NAME (?<name>\w*))wwww");
-    re.setPatternOptions(QRegularExpression::MultilineOption);
-    QRegularExpressionMatch match = re.match(lib_class_text);
-    if (match.hasMatch())
-        class_name = match.captured("name");
-
-    QString include_file;
-    QRegularExpression re2(R"wwww(^#include "(?<include>.*)")wwww");
-    re2.setPatternOptions(QRegularExpression::MultilineOption);
-    QRegularExpressionMatch match2 = re2.match(lib_class_text);
-    if (match2.hasMatch())
-        include_file = match2.captured("include");
-
-
-
-
-    QString include_file_name = QFileInfo(fileName).absoluteDir().filePath(include_file);
-    QFile frcl(include_file_name);
-    if (!frcl.open(QFile::ReadOnly | QFile::Text))
-        return false;
-    QTextStream incl(&frcl);
-    incl.setCodec("windows-1251");
-    QString include_text = incl.readAll();
-    //lib_class_text = "#define LIBRARY_CLASS_NAME Rpu6CanReceiver";
-    frcl.close();
-
-
-
-    int class_include_index = include_text.indexOf("#include \"base_library/base_library.h\"");
-    if (class_include_index == -1)
-        return false;
-    int class_include_close_index = include_text.indexOf("\n", class_include_index);
-    if (class_include_close_index == -1)
-        return false;
-
-
-    QString class_class_name = QString("class %1").arg(class_name);
-    int class_class_index = include_text.indexOf(class_class_name);
-    if (class_class_index == -1)
-        return false;
-    class_class_index = include_text.indexOf("{", class_class_index);
-    if (class_class_index == -1)
-        return false;
-    class_class_index++;
-    if (include_text.length() <= class_class_index)
-        return false;
-
-    QString result_header;
-
-    string = include_text.left(class_include_close_index);
-    result_header.append(string);
-    index = class_include_close_index;
-
-    string = QString::fromLocal8Bit("\n#include \"%1.yml.h\"").arg(target_name);
-    result_header.append(string);
-
-    string = include_text.mid(index, class_class_index - index + 1);
-    result_header.append(string);
-    index += class_class_index - index + 1;
-
-    string = QString::fromLocal8Bit("\nprivate:\n\tparameters_compiler::parameters parameters_;\n");
-    result_header.append(string);
-
-    string = include_text.right(include_text.length() - class_class_index);
-    result_header.append(string);
-
-
-
-
-
-
-
-    QFileInfo include_file_info(include_file_name);
-    QString cpp_file_name = include_file_info.path() + "/" + include_file_info.completeBaseName() + ".cpp";
-
-
-    QFile frclc(cpp_file_name);
-    if (!frclc.open(QFile::ReadOnly | QFile::Text))
-        return false;
-    QTextStream inclc(&frclc);
-    inclc.setCodec("windows-1251");
-    QString cpp_text = inclc.readAll();
-    //lib_class_text = "#define LIBRARY_CLASS_NAME Rpu6CanReceiver";
-    frclc.close();
-
-
-
-    QString on_set_name = QString("%1::OnSetParameters()").arg(class_name);
-    int on_set_index = cpp_text.indexOf(on_set_name);
-    if (on_set_index == -1)
-        return false;
-    on_set_index = cpp_text.indexOf("{", on_set_index);
-    if (on_set_index == -1)
-        return false;
-    on_set_index++;
-    if (cpp_text.length() <= on_set_index)
-        return false;
-
-    // find last of return core::RC_OK;
-    int on_set_close_index = cpp_text.indexOf("return core::RC_OK;", on_set_index);
-    if (on_set_close_index == -1)
-        return false;
-
-
-
-    int on_set_fn_close_index = -1;
-    int cnt = 1;
-    int pos = on_set_index;
-    while (pos < cpp_text.length())
-    {
-        int t = cpp_text.indexOf("}", pos);
-        int t1 = cpp_text.indexOf("{", pos);
-        if (t == -1)
-            break;
-        
-        if (t > t1)
-        {
-            cnt++;
-            pos = t1 == -1 ? t : t1;
         }
-        else
-        {
-            cnt--;
-            pos = t;
-        }
-
-        if (cnt == 0)
-        {
-            on_set_fn_close_index = pos;
-            break;
-        }
-
-        pos++;
     }
-    if (on_set_fn_close_index == -1)
+    else if (QFile::exists(paramsFilePath))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 уже существует").arg(paramsFilePath));
         return false;
-    QString on_set_text = cpp_text.mid(on_set_index, on_set_fn_close_index - on_set_index);
-
-
-
-
-
-
-    QStringList words;
-
-    QRegularExpression re3(R"wwww(GetParameter(\s|)\((\s|)(?<param>\w*))wwww");
-    re3.setPatternOptions(QRegularExpression::MultilineOption);
-    QRegularExpressionMatchIterator i3 = re3.globalMatch(on_set_text);
-    while (i3.hasNext())
-    {
-        QRegularExpressionMatch match = i3.next();
-        QString word = match.captured("param");
-        words << word;
     }
 
-    QRegularExpression re4(R"wwww(GET_(NUMERIC_|)PARAMETER(_ELRC|)(\s|)\((\s|)([\w:,\s]+|)"(?<param>\w*))wwww");
-    re4.setPatternOptions(QRegularExpression::MultilineOption);
-    QRegularExpressionMatchIterator i4 = re4.globalMatch(on_set_text);
-    while (i4.hasNext())
+    QString libClassFileName = QFileInfo(cmakeFilePath).absoluteDir().filePath("lib_class_name.h");
+    if (!QFile::exists(libClassFileName))
     {
-        QRegularExpressionMatch match = i4.next();
-        QString word = match.captured("param");
-        words << word;
+        libClassFileName = QFileInfo(cmakeFilePath).absoluteDir().filePath("src/lib_class_name.h");
+        if (!QFile::exists(libClassFileName))
+        {
+            QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл lib_class_name.h или src/lib_class_name.h не найден"));
+            return false;
+        }
+    }
+
+    QString libClassText;
+    if (!refactoring::helper::read_file(libClassFileName, "CP-1251", libClassText))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не прочитан").arg(libClassFileName));
+        return false;
     }
 
 
 
-
-
-
-
-
-
-
-
-    QString result_cpp;
-
-    string = cpp_text.left(on_set_close_index);
-    result_cpp.append(string);
-    index = on_set_close_index;
-
-    string = QString::fromLocal8Bit("\n\tif (!parameters_compiler::parameters::parse(this, parameters_);)\n").arg(target_name);
-    result_cpp.append(string);
-    string = QString::fromLocal8Bit("\t\tERROR_LOG_RETURN_CODE(core::RC_BAD_PARAM, \"Ошибка при загрузке параметров\");\n\n\t").arg(target_name);
-    result_cpp.append(string);
-
-    if (cpp_text.length() > index)
+    QString className;
+    if (!refactoring::helper::get_single_value(libClassText, R"wwww(#define LIBRARY_CLASS_NAME (?<value>\w*))wwww", className))
     {
-        string = cpp_text.right(cpp_text.length() - index);
-        result_cpp.append(string);
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("LIBRARY_CLASS_NAME не найден в %1").arg(libClassFileName));
+        return false;
     }
+
+    QString includeFile;
+    if (!refactoring::helper::get_single_value(libClassText, R"wwww(^#include "(?<value>.*)")wwww", includeFile))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("#include не найден в %1").arg(libClassFileName));
+        return false;
+    }
+
+
+
+    QString includeFilePath = QFileInfo(cmakeFilePath).absoluteDir().filePath(includeFile);
+
+    QString includeText;
+    if (!refactoring::helper::read_file(includeFilePath, "CP-1251", includeText))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не прочитан").arg(includeFilePath));
+        return false;
+    }
+
+    if (refactoring::helper::check_include_is_patched(includeText))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 уже пропатчен").arg(includeFilePath));
+        return false;
+    }
+
+    QString includePatched;
+    if (!refactoring::helper::patch_include(includeText, targetName, className, includePatched))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не пропатчен").arg(includeFilePath));
+        return false;
+    }
+
+
+
+    QFileInfo includeFileInfo(includeFilePath);
+    QString cppFilePath = includeFileInfo.path() + "/" + includeFileInfo.completeBaseName() + ".cpp";
+
+    QString cppText;
+    if (!refactoring::helper::read_file(cppFilePath, "CP-1251", cppText))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не прочитан").arg(cppFilePath));
+        return false;
+    }
+
+    if (refactoring::helper::check_cpp_is_patched(cppText))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 уже пропатчен").arg(cppFilePath));
+        return false;
+    }
+
+    QString cppPatched;
+    if (!refactoring::helper::patch_cpp(cppText, className, cppPatched))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не пропатчен").arg(cppFilePath));
+        return false;
+    }
+
+    QStringList parameters;
+    if (!refactoring::helper::get_parameters(cppText, className, parameters))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Список параметров не получен из файла %1").arg(cppFilePath));
+        return false;
+    }
+
+
+
+
+    // Патчим CMake
+    if (!refactoring::helper::write_file(cmakeFilePath, "UTF-8", cmakePatched))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не записан").arg(cmakeFilePath));
+        return false;
+    }
+
+    // Патчим include
+    if (!refactoring::helper::write_file(includeFilePath, "CP-1251", includePatched))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не записан").arg(includeFilePath));
+        return false;
+    }
+
+    // Патчим cpp
+    if (!refactoring::helper::write_file(cppFilePath, "CP-1251", cppPatched))
+    {
+        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Файл %1 не записан").arg(cppFilePath));
+        return false;
+    }
+
+    // Добавляем имя и параметры
+    parameters_compiler::file_info fi{};
+    fi.info.id = targetName.toStdString();
+    for (const auto& p : parameters)
+    {
+        parameters_compiler::parameter_info pi{};
+        pi.name = p.toStdString();
+        pi.required = true;
+        pi.type = "string";
+        fi.parameters.push_back(pi);
+    }
+
+    // Сохраняем файл YAML на диск
+    yaml::writer::write(paramsFilePath.toStdString(), fi);
+    if (!OpenFileInternal(paramsFilePath, false))
+        return false; // Message inside OpenFileInternal
+
+    QMessageBox::information(this, "Ok", QString::fromLocal8Bit("Внедрение прошло успешно!\nОтредактируйте параметры юнита и перезапустите build.py.\nУдалите ненужный код в исходных файлах юнита."));
 
     return true;
 }
