@@ -278,90 +278,14 @@ bool MainWindow::ApplyInternal(QString fileName)
     if (!refactoring::helper::read_file(fileName, "UTF-8", cmake_text))
         return false;
 
-
-
-
-    int target_name_index = cmake_text.indexOf("set(TARGET_NAME ");
-    if (target_name_index == -1)
-        return false;
-    target_name_index = cmake_text.indexOf(" ", target_name_index);
-    if (target_name_index == -1)
-        return false;
-    target_name_index++;
-    int target_name_close_index = cmake_text.indexOf(")", target_name_index);
-    if (target_name_close_index == -1)
-        return false;
-    QString target_name = cmake_text.mid(target_name_index, target_name_close_index - target_name_index);
-
-    //int add_lybrary_index = cmake_text.indexOf("# добавление библиотеки в проект");
-
-    int add_library_index = cmake_text.indexOf("add_library");
-    if (add_library_index == -1)
-        return false;
-    int add_library_close_index = cmake_text.indexOf(")", add_library_index);
-    if (add_library_close_index == -1)
+    QString target_name;
+    if (!refactoring::helper::get_single_value(cmake_text, R"wwww((SET|set)(\s|)\((\s|)TARGET_NAME\s(?<value>\w*))wwww", target_name))
         return false;
 
-    int add_library_before_index = cmake_text.lastIndexOf("\n\n", add_library_index);
-    if (add_library_before_index == -1)
+    QString cmake_patched;
+    if (!refactoring::helper::patch_cmake(cmake_text, cmake_patched))
         return false;
-    int add_library_after_index = cmake_text.indexOf("\n\n", add_library_index);
-    if (add_library_after_index == -1)
-    {
-        if (cmake_text.endsWith("\n") || cmake_text.endsWith("\n\t"))
-        {
-            add_library_after_index = cmake_text.size();
-        }
-        else
-        {
-            add_library_after_index = cmake_text.size() + 1;
-            cmake_text.append("\n");
-        }
-    }
 
-    // # генерируем файл параметров, заполн€ем PROJECT_PARAMETERS
-    // prepare_compile_parameters()
-    // ${PROJECT_PARAMETERS}
-    // # подписка дл€ обновлени€ параметров
-    // add_compile_parameters(${TARGET_NAME})
-
-    QString result_text;
-    QString string;
-    int index = 0;
-
-    string = cmake_text.left(add_library_before_index + 1);
-    result_text.append(string);
-    index = add_library_before_index + 1;
-
-    string = QString::fromLocal8Bit("\n# генерируем файл параметров, заполн€ем PROJECT_PARAMETERS\n");
-    result_text.append(string);
-
-    string = QString::fromLocal8Bit("prepare_compile_parameters()\n");
-    result_text.append(string);
-
-    string = cmake_text.mid(index, add_library_close_index - index);
-    result_text.append(string);
-    index += add_library_close_index - index;
-
-    string = QString::fromLocal8Bit(" ${PROJECT_PARAMETERS})");
-    result_text.append(string);
-    index += 1; // ")"
-
-    string = cmake_text.mid(index, add_library_after_index - index + 1);
-    result_text.append(string);
-    index += add_library_after_index - index + 1;
-
-    string = QString::fromLocal8Bit("\n# подписка дл€ обновлени€ параметров\n");
-    result_text.append(string);
-
-    string = QString::fromLocal8Bit("add_compile_parameters(${TARGET_NAME})\n");
-    result_text.append(string);
-
-    if (cmake_text.length() > index)
-    {
-        string = cmake_text.right(cmake_text.length() - index);
-        result_text.append(string);
-    }
 
     QString params_path = QFileInfo(fileName).absoluteDir().filePath("params");
     if (!QFile::exists(params_path))
