@@ -290,7 +290,7 @@ bool MainWindow::ApplyInternal(QString cmakeFilePath)
     }
 
     QString targetName;
-    if (!refactoring::helper::get_single_value(cmakeText, R"wwww((SET|set)(\s|)\((\s|)TARGET_NAME\s(?<value>\w*))wwww", targetName))
+    if (!refactoring::helper::get_single_value(cmakeText, R"wwww((SET|set)(\s+|)\((\s+|)TARGET_NAME\s+(?<value>\w*))wwww", targetName))
     {
         QMessageBox::critical(this, "Error", QString::fromLocal8Bit("TARGET_NAME не найден в %1").arg(cmakeText));
         return false;
@@ -346,13 +346,14 @@ bool MainWindow::ApplyInternal(QString cmakeFilePath)
         return false;
     }
 
-
-
     QString className;
-    if (!refactoring::helper::get_single_value(libClassText, R"wwww(#define LIBRARY_CLASS_NAME (?<value>\w*))wwww", className))
+    if (!refactoring::helper::get_single_value(libClassText, R"wwww(#define(\s+)LIBRARY_CLASS_NAME(\s+)\w+::(?<value>\w*))wwww", className))
     {
-        QMessageBox::critical(this, "Error", QString::fromLocal8Bit("LIBRARY_CLASS_NAME не найден в %1").arg(libClassFileName));
-        return false;
+        if (!refactoring::helper::get_single_value(libClassText, R"wwww(#define(\s+)LIBRARY_CLASS_NAME(\s+)(?<value>\w*))wwww", className))
+        {
+            QMessageBox::critical(this, "Error", QString::fromLocal8Bit("LIBRARY_CLASS_NAME не найден в %1").arg(libClassFileName));
+            return false;
+        }
     }
 
     QString includeFile;
@@ -362,9 +363,16 @@ bool MainWindow::ApplyInternal(QString cmakeFilePath)
         return false;
     }
 
-
-
     QString includeFilePath = QFileInfo(cmakeFilePath).absoluteDir().filePath(includeFile);
+    if (!QFile::exists(includeFilePath))
+    {
+        includeFilePath = QFileInfo(cmakeFilePath).absoluteDir().filePath(QString("src/%1").arg(includeFile));
+        if (!QFile::exists(includeFilePath))
+        {
+            QMessageBox::critical(this, "Error", QString::fromLocal8Bit("‘айл %1 не найден").arg(includeFile));
+            return false;
+        }
+    }
 
     QString includeText;
     if (!refactoring::helper::read_file(includeFilePath, "CP-1251", includeText))
@@ -385,8 +393,6 @@ bool MainWindow::ApplyInternal(QString cmakeFilePath)
         QMessageBox::critical(this, "Error", QString::fromLocal8Bit("‘айл %1 не пропатчен").arg(includeFilePath));
         return false;
     }
-
-
 
     QFileInfo includeFileInfo(includeFilePath);
     QString cppFilePath = includeFileInfo.path() + "/" + includeFileInfo.completeBaseName() + ".cpp";
@@ -447,10 +453,14 @@ bool MainWindow::ApplyInternal(QString cmakeFilePath)
     fi.info.id = targetName.toStdString();
     for (const auto& p : parameters)
     {
+        QString name = refactoring::helper::get_parameter_name(cppText, p);
+        QString description = refactoring::helper::get_parameter_description(cppText, p);
+
         parameters_compiler::parameter_info pi{};
-        pi.name = p.toStdString();
+        pi.name = name == "" ? p.toStdString() : name.toStdString();
         pi.required = true;
         pi.type = "string";
+        pi.description = description.toStdString();
         fi.parameters.push_back(pi);
     }
 

@@ -145,15 +145,15 @@ namespace refactoring
             QString string;
             int index = 0;
 
-            int class_include_index = include_text.indexOf("#include \"base_library/base_library.h\"");
+            int class_include_index = include_text.indexOf("#include");
             if (class_include_index == -1)
                 return false;
             int class_include_close_index = include_text.indexOf("\n", class_include_index);
             if (class_include_close_index == -1)
                 return false;
 
-            QString class_class_name = QString("class %1").arg(class_name);
-            int class_class_index = include_text.indexOf(class_class_name);
+            QString class_class_name = QString("class(\\s+)%1").arg(class_name);
+            int class_class_index = include_text.indexOf(QRegExp(class_class_name));
             if (class_class_index == -1)
                 return false;
             class_class_index = include_text.indexOf("{", class_class_index);
@@ -203,10 +203,14 @@ namespace refactoring
             QString string;
             int index = 0;
 
-            QString on_set_name = QString("%1::OnSetParameters()").arg(class_name);
-            int on_set_index = cpp_text.indexOf(on_set_name);
+            QString on_set_name = QString("%1::OnSetParameters").arg(class_name);
+            int on_set_index = cpp_text.indexOf(QRegExp(on_set_name));
             if (on_set_index == -1)
-                return false;
+            {
+                // Параметров нет, ничего не делаем
+                result = text;
+                return true;
+            }
             on_set_index = cpp_text.indexOf("{", on_set_index);
             if (on_set_index == -1)
                 return false;
@@ -215,7 +219,8 @@ namespace refactoring
                 return false;
 
             // find last of return core::RC_OK;
-            int on_set_close_index = cpp_text.indexOf("return core::RC_OK;", on_set_index);
+            QString return_string = QString("return(\\s+)(core::|core::ReturnCodes::|ReturnCodes::|)RC_OK;");
+            int on_set_close_index = cpp_text.indexOf(QRegExp(return_string), on_set_index);
             if (on_set_close_index == -1)
                 return false;
 
@@ -243,10 +248,14 @@ namespace refactoring
         {
             QString cpp_text(text);
 
-            QString on_set_name = QString("%1::OnSetParameters()").arg(class_name);
-            int on_set_index = cpp_text.indexOf(on_set_name);
+            QString on_set_name = QString("%1::OnSetParameters").arg(class_name);
+            int on_set_index = cpp_text.indexOf(QRegExp(on_set_name));
             if (on_set_index == -1)
-                return false;
+            {
+                // Параметров нет, ничего не делаем
+                result = QStringList();
+                return true;
+            }
             on_set_index = cpp_text.indexOf("{", on_set_index);
             if (on_set_index == -1)
                 return false;
@@ -288,7 +297,7 @@ namespace refactoring
             QString on_set_text = cpp_text.mid(on_set_index, on_set_fn_close_index - on_set_index);
 
             QStringList words;
-            QRegularExpression re3(R"wwww(GetParameter(\s|)\((\s|)(?<param>\w*))wwww");
+            QRegularExpression re3(R"wwww(GetParameter(\s+|)\((\s+|)(std::string(\s+|)\(|)("|)(?<param>\w*))wwww");
             re3.setPatternOptions(QRegularExpression::MultilineOption);
             QRegularExpressionMatchIterator i3 = re3.globalMatch(on_set_text);
             while (i3.hasNext())
@@ -298,7 +307,7 @@ namespace refactoring
                 words << word;
             }
 
-            QRegularExpression re4(R"wwww(GET_(NUMERIC_|)PARAMETER(_ELRC|)(\s|)\((\s|)([\w:,\s]+|)"(?<param>\w*))wwww");
+            QRegularExpression re4(R"wwww(GET_(NUMERIC_|)PARAMETER(_ELRC|)(\s+|)\((\s+|)([\w:,\s]+|)"(?<param>\w*))wwww");
             re4.setPatternOptions(QRegularExpression::MultilineOption);
             QRegularExpressionMatchIterator i4 = re4.globalMatch(on_set_text);
             while (i4.hasNext())
@@ -312,6 +321,31 @@ namespace refactoring
             return true;
         }
 
+        static QString get_parameter_name(const QString& text, const QString& name)
+        {
+            QString value;
+            QString re = QString(R"wwww(const(\s+)std::string(\s+)%1(\s+|)=(\s+|)"(?<value>[\w]+)")wwww").arg(name);
+            if (get_single_value(text, re, value))
+            {
+                return value;
+            }
+            else
+                return QString();
+        }
+
+        static QString get_parameter_description(const QString& text, const QString& name)
+        {
+            QString value;
+            QString re = QString(R"wwww(const(\s+)std::string(\s+)%1(\s+|)=(\s+|)"([\w]+)"(\s+|);(\s+|)\/\/!<(\s+|)(?<value>.*))wwww").arg(name);
+            if (get_single_value(text, re, value))
+            {
+                return value;
+            }
+            else
+                return QString();
+
+            return true;
+        }
     };
 }
 
