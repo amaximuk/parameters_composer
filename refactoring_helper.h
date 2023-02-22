@@ -231,7 +231,7 @@ namespace refactoring
             string = QString::fromLocal8Bit("\n\tif (!parameters_compiler::parameters::parse(this, parameters_))\n");
             result_text.append(string);
 
-            string = QString::fromLocal8Bit("\t\tERROR_LOG_RETURN_CODE(core::RC_BAD_PARAM, \"Ошибка при загрузке параметров\");\n\n\t");
+            string = QString::fromLocal8Bit("\t\tERROR_LOG_RET_CODE(core::RC_BAD_PARAM, \"Ошибка при загрузке параметров\");\n\n\t");
             result_text.append(string);
 
             if (cpp_text.length() > index)
