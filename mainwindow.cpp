@@ -20,11 +20,14 @@
 #include <QDesktopServices>
 #include <QSettings>
 
+#include <fstream>
+
 #include "parameters_compiler_helper.h"
 #include "yaml_parser.h"
 #include "yaml_writer.h"
 #include "json_writer.h"
 #include "refactoring_helper.h"
+#include "base64.h"
 #include "mainwindow.h"
 
 //#ifdef _WIN32 
@@ -1073,7 +1076,8 @@ QWidget* MainWindow::CreateMainTabInfoWidget()
     AddLineEditProperty(gridLayoutInfo, "DISPLAY_NAME", index++, type, ControlsGroup::Info, false);
     AddPlainTextEditProperty(gridLayoutInfo, "DESCRIPTION", index++, type, ControlsGroup::Info);
     AddLineEditProperty(gridLayoutInfo, "CATEGORY", index++, type, ControlsGroup::Info, false);
-    AddLineEditProperty(gridLayoutInfo, "PICTOGRAM", index++, type, ControlsGroup::Info, false);
+    //AddLineEditProperty(gridLayoutInfo, "PICTOGRAM", index++, type, ControlsGroup::Info, false);
+    AddPictogramProperty(gridLayoutInfo, "PICTOGRAM", index++, type, ControlsGroup::Info);
     AddLineEditProperty(gridLayoutInfo, "HINT", index++, type, ControlsGroup::Info, false);
     AddLineEditProperty(gridLayoutInfo, "AUTHOR", index++, type, ControlsGroup::Info, false);
     AddLineEditProperty(gridLayoutInfo, "WIKI", index++, type, ControlsGroup::Info, false);
@@ -1239,6 +1243,47 @@ void MainWindow::AddComboBoxTypeType(QGridLayout* gridLayout, QString name, int 
 
     auto& tc = GetControls(type, group);
     tc[name] = comboBox;
+}
+
+void MainWindow::AddPictogramProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group)
+{
+    gridLayout->addWidget(new QLabel(name), index, 0);
+
+    QLineEdit* lineEdit = new QLineEdit;
+    lineEdit->setProperty("name", name);
+    lineEdit->setProperty("group", static_cast<int>(group));
+    lineEdit->setProperty("type", type);
+    lineEdit->installEventFilter(focusFilter_);
+    connect(lineEdit, &QLineEdit::editingFinished, this, &MainWindow::on_EditingFinished);
+    
+    QString buttonName = QString("%1_BUTTON").arg(name);
+    QToolButton* toolButtonSelectIcon = new QToolButton;
+    toolButtonSelectIcon->setFixedSize(24, 24);
+    toolButtonSelectIcon->setIconSize(QSize(24, 24));
+    toolButtonSelectIcon->setIcon(QIcon(":/images/no-image.png"));
+    toolButtonSelectIcon->setProperty("type", type);
+    toolButtonSelectIcon->setProperty("group", static_cast<int>(group));
+    toolButtonSelectIcon->setProperty("name", name);
+    toolButtonSelectIcon->setProperty("action", "add");
+    toolButtonSelectIcon->setToolTip(QString::fromLocal8Bit("Добавить иконку"));
+    connect(toolButtonSelectIcon, &QToolButton::clicked, this, &MainWindow::on_PictogramClicked);
+
+    QHBoxLayout* hBoxLayoutPropertyListButtons = new QHBoxLayout;
+    hBoxLayoutPropertyListButtons->setContentsMargins(0, 0, 0, 0);
+    hBoxLayoutPropertyListButtons->addWidget(lineEdit, 1);
+    hBoxLayoutPropertyListButtons->addWidget(toolButtonSelectIcon);
+
+    //hBoxLayoutPropertyListButtons->addStretch();
+    
+    QFrame* widgetPropertyListButtons = new QFrame;
+    widgetPropertyListButtons->setLayout(hBoxLayoutPropertyListButtons);
+    widgetPropertyListButtons->setFrameShape(QFrame::NoFrame);
+    
+    gridLayout->addWidget(widgetPropertyListButtons, index, 1);
+
+    auto& tc = GetControls(type, group);
+    tc[name] = lineEdit;
+    tc[buttonName] = toolButtonSelectIcon;
 }
 
 void MainWindow::AddGroupWidget(QWidget* groupWidget, QString name, QString type, ControlsGroup group)
@@ -2479,6 +2524,11 @@ void MainWindow::on_EditingFinished()
     {
         // Main ID
     }
+    else if (group == MainWindow::ControlsGroup::Info && name == "PICTOGRAM")
+    {
+        // Main PICTOGRAM
+        UpdatePictogram();
+    }
     else if (group == MainWindow::ControlsGroup::Info && name == "NAME")
     {
         // Type NAME
@@ -2623,6 +2673,8 @@ void MainWindow::UpdateMain()
     qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setText(QString::fromStdString(fileInfo_.info.wiki));
     qobject_cast<QLineEdit*>(tc.Info["WIKI"])->setCursorPosition(0);
 
+    UpdatePictogram();
+
     QListWidget* listWidget = qobject_cast<QListWidget*>(tc.Parameters["PARAMETERS"]);
     for (const auto& pi : fileInfo_.parameters)
         listWidget->addItem(QString::fromStdString(pi.name));
@@ -2666,6 +2718,30 @@ void MainWindow::UpdateWindowTitle()
     if (modified_)
         title += "*";
     setWindowTitle(title);
+}
+
+void MainWindow::UpdatePictogram()
+{
+    auto& tc = GetControls("Main", MainWindow::ControlsGroup::Info);
+    QLineEdit* lineEdit = qobject_cast<QLineEdit*>(tc["PICTOGRAM"]);
+    QToolButton* toolButton = qobject_cast<QToolButton*>(tc["PICTOGRAM_BUTTON"]);
+
+    std::string ds = base64_decode(lineEdit->text().toStdString());
+    QByteArray ba(ds.c_str(), static_cast<int>(ds.size()));
+    QPixmap px;
+    bool loaded = false;
+    try
+    {
+        loaded = px.loadFromData(ba, "PNG", Qt::AutoColor);
+    }
+    catch (...)
+    {
+        loaded = false;
+    }
+    if (!loaded)
+        toolButton->setIcon(QIcon(":/images/no-image.png"));
+    else
+        toolButton->setIcon(QIcon(px));
 }
 
 void MainWindow::SaveAs()
@@ -2768,4 +2844,35 @@ void MainWindow::on_FocusChanged(QObject* sender, bool focus)
     plainTextEditHint_->clear();
     plainTextEditHint_->appendHtml(QString("<p style='font-weight: bold; font-size: 14px;'>%1</p>").arg(name));
     plainTextEditHint_->appendHtml(text);
+}
+
+void MainWindow::on_PictogramClicked()
+{
+    QFileDialog dialog(this);
+    dialog.setNameFilters({ "PNG Files (*.png)" });
+    //dialog.setNameFilters({ "PNG Files (*.png)", "ICO (*.ico)" });
+    dialog.setAcceptMode(QFileDialog::AcceptOpen);
+
+    QStringList fileNames;
+    if (dialog.exec())
+        fileNames = dialog.selectedFiles();
+
+    if (fileNames.size() == 0)
+        return;
+
+    //bool is_png = (dialog.selectedNameFilter() == "PNG Files (*.png)");
+    std::ifstream input(fileNames[0].toStdString(), std::ios::binary);
+    if (!input.is_open())
+        return;
+    std::vector<unsigned char> buffer(std::istreambuf_iterator<char>(input), {});
+
+    std::string s = base64_encode(buffer.data(), buffer.size());
+    auto& tc = GetControls("Main", MainWindow::ControlsGroup::Info);
+    QLineEdit* lineEdit = qobject_cast<QLineEdit*>(tc["PICTOGRAM"]);
+    lineEdit->setText(QString::fromStdString(s));
+
+    UpdatePictogram();
+
+    modified_ = true;
+    UpdateWindowTitle();
 }

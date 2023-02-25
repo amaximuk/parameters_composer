@@ -87,6 +87,7 @@ private:
     void AddGroupWidget(QWidget* groupWidget, QString name, QString type, ControlsGroup group);
     void AddComboBoxPropertyType(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
     void AddComboBoxTypeType(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
+    void AddPictogramProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
 
     bool ReadCurrentFileInfo();
     bool ReadCurrentMainInfo(parameters_compiler::info_info& mi);
@@ -115,6 +116,7 @@ private:
     void UpdateMain();
     void UpdateType(QString type);
     void UpdateWindowTitle();
+    void UpdatePictogram();
 
     void SaveAs();
     bool SaveAsInternal(QString fileName, bool is_json, bool is_temp);
@@ -133,5 +135,6 @@ private slots:
     void on_TextChanged();
     void on_StateChanged(int state);
     void on_FocusChanged(QObject* sender, bool focus);
+    void on_PictogramClicked();
 };
 #endif // MAINWINDOW_H
