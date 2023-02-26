@@ -2732,7 +2732,7 @@ void MainWindow::UpdatePictogram()
     bool loaded = false;
     try
     {
-        loaded = px.loadFromData(ba, "PNG", Qt::AutoColor);
+        loaded = px.loadFromData(ba);
     }
     catch (...)
     {
@@ -2849,8 +2849,8 @@ void MainWindow::on_FocusChanged(QObject* sender, bool focus)
 void MainWindow::on_PictogramClicked()
 {
     QFileDialog dialog(this);
-    dialog.setNameFilters({ "PNG Files (*.png)" });
-    //dialog.setNameFilters({ "PNG Files (*.png)", "ICO (*.ico)" });
+    //dialog.setNameFilters({ "PNG Files (*.png)" });
+    dialog.setNameFilters({ "PNG Files (*.png)", "ICO (*.ico)" });
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
 
     QStringList fileNames;
