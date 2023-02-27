@@ -1218,6 +1218,7 @@ void MainWindow::AddComboBoxPropertyType(QGridLayout* gridLayout, QString name, 
     for (const auto& s : parameters_compiler::helper::get_property_type_names(fileInfo_))
         comboBox->addItem(QString::fromStdString(s));
 
+    connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::on_CurrentIndexChanged);
     gridLayout->addWidget(comboBox, index, 1);
 
     auto& tc = GetControls(type, group);
@@ -2596,60 +2597,69 @@ void MainWindow::on_EditingFinished()
 void MainWindow::on_CurrentIndexChanged(int index)
 {
     QComboBox* comboBox = qobject_cast<QComboBox*>(sender());
-    QString type = comboBox->property("type").toString();
     QString name = comboBox->property("name").toString();
+    MainWindow::ControlsGroup group = static_cast<MainWindow::ControlsGroup>(comboBox->property("group").toInt());
+    QString type = comboBox->property("type").toString();
 
-    QString t = comboBox->itemText(index);
-    if (t == "yml")
+    if (group == MainWindow::ControlsGroup::Info && name == "TYPE")
     {
-        QList<QString> usedInTypes;
+        QString t = comboBox->itemText(index);
+        if (t == "yml")
+        {
+            QList<QString> usedInTypes;
 
-        // Check if not array type used
-        for (auto& p : fileInfo_.parameters)
-        {
-            if (QString::fromStdString(p.type) == type)
-            {
-                usedInTypes.push_back("Main");
-                break;
-            }
-        }
-        for (auto& t : fileInfo_.types)
-        {
-            for (auto& p : t.parameters)
+            // Check if not array type used
+            for (auto& p : fileInfo_.parameters)
             {
                 if (QString::fromStdString(p.type) == type)
                 {
-                    usedInTypes.push_back(QString::fromStdString(t.name));
+                    usedInTypes.push_back("Main");
                     break;
                 }
             }
+            for (auto& t : fileInfo_.types)
+            {
+                for (auto& p : t.parameters)
+                {
+                    if (QString::fromStdString(p.type) == type)
+                    {
+                        usedInTypes.push_back(QString::fromStdString(t.name));
+                        break;
+                    }
+                }
+            }
+
+            if (usedInTypes.size() > 0)
+            {
+                QString message = QString::fromLocal8Bit("Тип %1 используется для параметра в другом типе,\nно для типов yml допускается использование только в массивах array<%1>. Типы:\n").arg(type);
+                for (const auto& s : usedInTypes)
+                    message += s + "\n";
+                QMessageBox::StandardButton resBtn = QMessageBox::critical(this, "parameters_composer", message);
+
+                comboBox->setCurrentText("enum"); // !!! need get value from fileInfo_
+                return;
+            }
         }
 
-        if (usedInTypes.size() > 0)
-        {
-            QString message = QString::fromLocal8Bit("Тип %1 используется для параметра в другом типе,\nно для типов yml допускается использование только в массивах array<%1>. Типы:\n").arg(type);
-            for (const auto& s : usedInTypes)
-                message += s + "\n";
-            QMessageBox::StandardButton resBtn = QMessageBox::critical(this, "parameters_composer", message);
-
-            comboBox->setCurrentText("enum"); // !!! need get value from fileInfo_
+        parameters_compiler::type_info tit{};
+        if (!ReadCurrentTypeInfo(type, tit))
             return;
-        }
+
+        auto ti = parameters_compiler::helper::get_type_info(fileInfo_, type.toStdString());
+        ti->type = tit.type;
+        //if (!parameters_compiler::helper::set_type_info(fileInfo_, type.toStdString(), tit, true))
+        //    return;
+
+        FillPropertyTypeNames();
+
+        modified_ = true;
+        UpdateWindowTitle();
     }
-
-    parameters_compiler::type_info tit{};
-    if (!ReadCurrentTypeInfo(type, tit))
-        return;
-
-    auto ti = parameters_compiler::helper::get_type_info(fileInfo_, type.toStdString());
-    ti->type = tit.type;
-    //if (!parameters_compiler::helper::set_type_info(fileInfo_, type.toStdString(), tit, true))
-    //    return;
-
-    FillPropertyTypeNames();
-
-    modified_ = true;
-    UpdateWindowTitle();
+    else if (group == MainWindow::ControlsGroup::Properties && name == "TYPE")
+    {
+        modified_ = true;
+        UpdateWindowTitle();
+    }
 }
 
 void MainWindow::Update()
