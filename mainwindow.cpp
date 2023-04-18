@@ -1528,6 +1528,9 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     QHBoxLayout* hBoxLayoutPropertyListButtons = new QHBoxLayout;
     hBoxLayoutPropertyListButtons->setMargin(0);
 
+    auto& tc = GetControls(type, group);
+
+    QString nameAdd = name + "_ADD";
     QToolButton* toolButtonPropertyListAdd = new QToolButton;
     toolButtonPropertyListAdd->setFixedSize(buttonSize, buttonSize);
     toolButtonPropertyListAdd->setIconSize(QSize(buttonSize, buttonSize));
@@ -1539,7 +1542,9 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListAdd->setToolTip(QString::fromLocal8Bit("Добавить %1").arg(toolTipBase));
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListAdd);
     connect(toolButtonPropertyListAdd, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
+    tc[nameAdd] = toolButtonPropertyListAdd;
 
+    QString nameRemove = name + "_REMOVE";
     QToolButton* toolButtonPropertyListRemove = new QToolButton;
     toolButtonPropertyListRemove->setFixedSize(buttonSize, buttonSize);
     toolButtonPropertyListRemove->setIconSize(QSize(buttonSize, buttonSize));
@@ -1551,7 +1556,9 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListRemove->setToolTip(QString::fromLocal8Bit("Удалить %1").arg(toolTipBase));
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListRemove);
     connect(toolButtonPropertyListRemove, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
+    tc[nameRemove] = toolButtonPropertyListRemove;
 
+    QString nameUp = name + "_UP";
     QToolButton* toolButtonPropertyListUp = new QToolButton;
     toolButtonPropertyListUp->setFixedSize(buttonSize, buttonSize);
     toolButtonPropertyListUp->setIconSize(QSize(buttonSize, buttonSize));
@@ -1563,7 +1570,9 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListUp->setToolTip(QString::fromLocal8Bit("Поднять %1 в списке").arg(toolTipBase));
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListUp);
     connect(toolButtonPropertyListUp, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
+    tc[nameUp] = toolButtonPropertyListUp;
 
+    QString nameDown = name + "_DOWN";
     QToolButton* toolButtonPropertyListDown = new QToolButton;
     toolButtonPropertyListDown->setFixedSize(buttonSize, buttonSize);
     toolButtonPropertyListDown->setIconSize(QSize(buttonSize, buttonSize));
@@ -1575,6 +1584,7 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     toolButtonPropertyListDown->setToolTip(QString::fromLocal8Bit("Опустить %1 в списке").arg(toolTipBase));
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListDown);
     connect(toolButtonPropertyListDown, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
+    tc[nameDown] = toolButtonPropertyListDown;
 
     hBoxLayoutPropertyListButtons->addStretch();
 
