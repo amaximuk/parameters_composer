@@ -1095,7 +1095,7 @@ QWidget* MainWindow::CreatePropertyListWidget(QString type)
     labelPropertyListHeader->setStyleSheet("font-weight: bold; font-size: 14px");
     labelPropertyListHeader->setText("PARAMETERS");
 
-    QWidget* widgetPropertyListButtons = CreateListControlWidget(32, type, ControlsGroup::Parameters, "PARAMETERS", QString::fromLocal8Bit("параметр"));
+    QWidget* widgetPropertyListButtons = CreateListControlWidget(32, type, ControlsGroup::Parameters, "PARAMETERS", QString::fromLocal8Bit("параметр"), true);
 
     QListWidget* listWidget = new QListWidget;
     listWidget->setProperty("name", "PARAMETERS");
@@ -1183,7 +1183,7 @@ void MainWindow::AddPropertySubheader(QGridLayout* gridLayout, QString text, QSt
 
 void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group)
 {
-    QWidget* widgetPropertiesRestrictionsSetButtons = CreateListControlWidget(24, type, group, name, QString::fromLocal8Bit("значение %1").arg(name));
+    QWidget* widgetPropertiesRestrictionsSetButtons = CreateListControlWidget(24, type, group, name, QString::fromLocal8Bit("значение %1").arg(name), false);
     QListWidget* listWidget = new QListWidget;
     listWidget->setProperty("name", name);
     listWidget->setProperty("group", static_cast<int>(group));
@@ -1523,7 +1523,7 @@ QWidget* MainWindow::CreatePropertiesWidget(QString type)
     return scrollAreaProperties;
 }
 
-QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, ControlsGroup group, QString name, QString toolTipBase)
+QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, ControlsGroup group, QString name, QString toolTipBase, bool addDuplicate)
 {
     QHBoxLayout* hBoxLayoutPropertyListButtons = new QHBoxLayout;
     hBoxLayoutPropertyListButtons->setMargin(0);
@@ -1585,6 +1585,23 @@ QWidget* MainWindow::CreateListControlWidget(int buttonSize, QString type, Contr
     hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListDown);
     connect(toolButtonPropertyListDown, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
     tc[nameDown] = toolButtonPropertyListDown;
+
+    if (addDuplicate)
+    {
+        QString nameDuplicate = name + "_DUPLICATE";
+        QToolButton* toolButtonPropertyListDuplicate = new QToolButton;
+        toolButtonPropertyListDuplicate->setFixedSize(buttonSize, buttonSize);
+        toolButtonPropertyListDuplicate->setIconSize(QSize(buttonSize, buttonSize));
+        toolButtonPropertyListDuplicate->setIcon(QIcon(":/images/duplicate.png"));
+        toolButtonPropertyListDuplicate->setProperty("type", type);
+        toolButtonPropertyListDuplicate->setProperty("group", static_cast<int>(group));
+        toolButtonPropertyListDuplicate->setProperty("name", name);
+        toolButtonPropertyListDuplicate->setProperty("action", "duplicate");
+        toolButtonPropertyListDuplicate->setToolTip(QString::fromLocal8Bit("Дублировать %1").arg(toolTipBase));
+        hBoxLayoutPropertyListButtons->addWidget(toolButtonPropertyListDuplicate);
+        connect(toolButtonPropertyListDuplicate, &QToolButton::clicked, this, &MainWindow::on_ListControlClicked);
+        tc[nameDuplicate] = toolButtonPropertyListDuplicate;
+    }
 
     hBoxLayoutPropertyListButtons->addStretch();
 
@@ -1753,6 +1770,49 @@ void MainWindow::on_ListControlClicked()
         // Move in fileInfo_
         if (!parameters_compiler::helper::move_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString(), false))
             return;
+
+        modified_ = true;
+        UpdateWindowTitle();
+    }
+    else if (group == ControlsGroup::Parameters && name == "PARAMETERS" && action == "duplicate")
+    {
+        if (!ReadCurrentFileInfo())
+            return;
+
+        auto& tc = GetControls(type, group);
+        QListWidget* listWidget = qobject_cast<QListWidget*>(tc["PARAMETERS"]);
+        if (listWidget->currentItem() == nullptr)
+            return;
+        QString propertyName = listWidget->currentItem()->text();
+
+        bool ok;
+        QString text = QInputDialog::getText(this, "Add property", QString::fromLocal8Bit("Имя параметра:"), QLineEdit::Normal, "", &ok);
+        if (!ok || text.isEmpty())
+            return;
+
+        // Validate
+        if (parameters_compiler::helper::get_parameter_info(fileInfo_, type.toStdString(), text.toStdString()))
+        {
+            QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Параметр с именем %1 уже существует").arg(text));
+            return;
+        }
+
+        // Get parameter for copy
+        auto oldPi = parameters_compiler::helper::get_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString());
+        if (oldPi == nullptr)
+            return;
+
+        // Add to control
+        listWidget->addItem(new QListWidgetItem(text));
+
+        // Add to fileInfo_
+        parameters_compiler::parameter_info pi{ *oldPi };
+        pi.name = text.toStdString();
+        if (!parameters_compiler::helper::add_parameter_info(fileInfo_, type.toStdString(), pi))
+            return;
+
+        // Update
+        listWidget->setCurrentRow(listWidget->count() - 1);
 
         modified_ = true;
         UpdateWindowTitle();

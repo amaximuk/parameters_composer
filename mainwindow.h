@@ -77,7 +77,7 @@ private:
     QWidget* CreateTypeTabInfoWidget(QString type);
     QWidget* CreatePropertyListWidget(QString type);
     QWidget* CreatePropertiesWidget(QString type);
-    QWidget* CreateListControlWidget(int buttonSize, QString type, ControlsGroup group, QString name, QString toolTipBase);
+    QWidget* CreateListControlWidget(int buttonSize, QString type, ControlsGroup group, QString name, QString toolTipBase, bool addDuplicate);
 
     void AddLineEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group, bool bold);
     void AddPlainTextEditProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
