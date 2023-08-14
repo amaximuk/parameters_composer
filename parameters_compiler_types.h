@@ -17,6 +17,7 @@ namespace parameters_compiler
 		"unit",
 		"path",
 		"string",
+		"library",
 		"double",
 		"int",
 		"bool",
