@@ -33,6 +33,7 @@ namespace parameters_compiler
 		"array<unit>",
 		"array<path>",
 		"array<string>",
+		"array<library>",
 		"array<double>",
 		"array<int>",
 		"array<bool>",
