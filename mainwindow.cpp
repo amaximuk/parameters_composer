@@ -257,15 +257,14 @@ bool MainWindow::OpenFileInternal(QString fileName, bool is_json)
 
     fileInfo_ = fi;
 
-    UpdateMain();
     for (const auto& type : parameters_compiler::helper::get_user_type_names(fileInfo_))
     {
         QWidget* widgetTabType = CreateTypeTabWidget(QString::fromStdString(type));
         tabWidget_->addTab(widgetTabType, QString::fromStdString(type));
         UpdateType(QString::fromStdString(type));
     }
-
     FillPropertyTypeNames();
+    UpdateMain();
 
     currentFileName_ = fileName;
     modified_ = false;
