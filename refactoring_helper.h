@@ -28,7 +28,7 @@ namespace refactoring
             if (!fw.open(QFile::WriteOnly | QFile::Text))
                 return false;
             QTextStream out(&fw);
-            out.setCodec("windows-1251");
+            out.setCodec(encoding.toStdString().c_str());
             out << text;
             fw.close();
             return true;
