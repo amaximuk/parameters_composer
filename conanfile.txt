@@ -1,5 +1,6 @@
 [requires]
 yaml-cpp/0.7.0
+jsoncpp/1.8.3
 
 [generators]
 cmake

@@ -23,6 +23,4 @@ namespace yaml
 	};
 }
 
-
-
 #endif // YAML_PARSER_H_

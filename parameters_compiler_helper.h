@@ -7,10 +7,365 @@
 
 namespace parameters_compiler
 {
+    enum class base_types
+    {
+        none,
+        string,
+        integer,
+        floating,
+        bool_,
+        array,
+        enum_
+    };
 
 	class helper
 	{
 	public:
+        static bool is_array_type(const std::string& name)
+        {
+            QRegularExpression re(R"wwww(^array<(?<value>.*)>)wwww");
+            QRegularExpressionMatch match = re.match(QString::fromStdString(name));
+            QString type = QString::fromStdString(name);
+            bool is_array = false;
+            if (match.hasMatch())
+            {
+                is_array = true;
+                type = match.captured("value");
+            }
+            return is_array;
+        }
+
+        static std::string get_array_type(const std::string& name)
+        {
+            QRegularExpression re(R"wwww(^array<(?<value>.*)>)wwww");
+            QRegularExpressionMatch match = re.match(QString::fromStdString(name));
+            QString type = QString::fromStdString(name);
+            bool is_array = false;
+            if (match.hasMatch())
+            {
+                is_array = true;
+                type = match.captured("value");
+            }
+            return type.toStdString();
+        }
+
+        static base_types get_base_type(const std::string& type)
+        {
+            if (is_array_type(type))
+                return base_types::array;
+            else if (is_inner_type(type))
+            {
+                if (type == "unit" || type == "path" || type == "string")
+                    return base_types::string;
+                else if (type == "int" || type == "int8_t" || type == "int16_t" || type == "int32_t" ||
+                    type == "int64_t" || type == "uint8_t" || type == "uint16_t" || type == "uint32_t" || type == "uint64_t")
+                    return base_types::integer;
+                else if (type == "double" || type == "float")
+                    return base_types::floating;
+                else if (type == "bool")
+                    return base_types::bool_;
+                else
+                {
+                    assert(false);
+                    return base_types::none;
+                }
+            }
+            else // enum, yaml must be array
+                return base_types::enum_;
+        }
+
+        //static std::string get_parameter_hint(const parameters_compiler::parameter_info& pi)
+        //{
+        //    if (pi.required)
+        //        return pi.hint;
+        //    else if (pi.default_ != "")
+        //        return pi.default_;
+        //    else
+        //        return pi.hint;
+        //}
+        static QString get_instance_name_initial(file_info& fi)
+        {
+            if (fi.info.hint != "")
+                return QString::fromStdString(fi.info.hint);
+
+            return QString::fromStdString(fi.info.id);
+        }
+
+        static QVariant get_parameter_initial(file_info& fi, const parameter_info& pi, bool is_item)
+        {
+            QVariant value;
+            //bool is_array = is_array_type(pi.type);
+            base_types bt = get_base_type(pi.type);
+            if (bt == base_types::array && is_item)
+                bt = get_base_type(get_array_type(pi.type));
+
+            if (bt == base_types::array)
+            {
+                if (pi.restrictions.set_count.size() > 0)
+                    //value = 0;
+                    value = std::stoi(pi.restrictions.set_count[0]);
+                else if (pi.restrictions.min_count != "")
+                    value = std::stoi(pi.restrictions.min_count);
+                else// if (pi.restrictions.max_count != "")
+                    value = 0;
+            }
+            else
+            {
+                std::string hint;
+
+                if (pi.required)
+                    hint = pi.hint;
+                else if (pi.default_ != "")
+                    hint = pi.default_;
+                else
+                    hint = pi.hint;
+
+                //if (bt == base_types::string)
+                //{
+                //    value = QString::fromStdString(hint);
+                //}
+                //else 
+                if (hint == "" && (bt == base_types::enum_ || bt == base_types::integer || bt == base_types::floating))
+                {
+                    // try get initial from restrictions
+                    if (pi.restrictions.set_.size() > 0)
+                        hint = pi.restrictions.set_[0];
+                    else if (pi.restrictions.min != "" && pi.restrictions.max != "")
+                    {
+                        if (bt == base_types::enum_)
+                            hint = pi.restrictions.min;
+                        else if (bt == base_types::integer)
+                        {
+                            if (std::stoi(pi.restrictions.min) <= 0 && std::stoi(pi.restrictions.max) >= 0)
+                                hint = "0";
+                            else
+                            {
+                                int abs_min = std::abs(std::stoi(pi.restrictions.min));
+                                int abs_max = std::abs(std::stoi(pi.restrictions.max));
+                                hint = abs_min <= abs_max ? pi.restrictions.min : pi.restrictions.max;
+                            }
+                        }
+                        else if (bt == base_types::floating)
+                        {
+                            if (std::stod(pi.restrictions.min) <= 0 && std::stod(pi.restrictions.max) >= 0)
+                                hint = "0";
+                            else
+                            {
+                                double abs_min = std::abs(std::stod(pi.restrictions.min));
+                                double abs_max = std::abs(std::stod(pi.restrictions.max));
+                                hint = abs_min <= abs_max ? pi.restrictions.min : pi.restrictions.max;
+                            }
+                        }
+                    }
+                    else if (pi.restrictions.min != "")
+                    {
+                        if (bt == base_types::enum_)
+                            hint = pi.restrictions.min;
+                        else if (bt == base_types::integer)
+                        {
+                            if (std::stoi(pi.restrictions.min) <= 0)
+                                hint = "0";
+                            else
+                                hint = pi.restrictions.min;
+                        }
+                        else if (bt == base_types::floating)
+                        {
+                            if (std::stod(pi.restrictions.min) <= 0)
+                                hint = "0";
+                            else
+                                hint = pi.restrictions.min;
+                        }
+                    }
+                    else if (pi.restrictions.max != "")
+                    {
+                        if (bt == base_types::enum_)
+                            hint = pi.restrictions.min;
+                        else if (bt == base_types::integer)
+                        {
+                            if (std::stod(pi.restrictions.max) >= 0)
+                                hint = "0";
+                            else
+                                hint = pi.restrictions.max;
+                        }
+                        else if (bt == base_types::floating)
+                        {
+                            if (std::stod(pi.restrictions.max) >= 0)
+                                hint = "0";
+                            else
+                                hint = pi.restrictions.max;
+                        }
+                    }
+                }
+
+                if (bt == base_types::string)
+                {
+                    value = QString::fromStdString(hint);
+                }
+                else if (bt == base_types::bool_)
+                {
+                    if (hint != "")
+                        value = hint == "true" ? true : false;
+                    else
+                        value = false;
+                }
+                else if (bt == base_types::enum_)
+                {
+                    // get index of hint value or 0 (index of first enum element)
+                    type_info* ti = get_type_info(fi, pi.type);
+
+                    if (ti != nullptr && ti->type == "enum" && ti->values.size() > 0)
+                    {
+                        if (hint == "")
+                            value = 0;
+                        else
+                        {
+                            auto it = std::find_if(ti->values.cbegin(), ti->values.cend(), [hint](const auto& v) { return v.first == hint; });
+                            if (it != ti->values.cend())
+                                value = static_cast<int>(std::distance(ti->values.cbegin(), it));
+                            else
+                                value = 0;
+                        }
+                    }
+                    else
+                        value = 0;
+                }
+                else if (bt == base_types::integer)
+                {
+                    if (hint != "")
+                        value = std::stoi(hint);
+                    else
+                        value = 0;
+                }
+                else if (bt == base_types::floating)
+                {
+                    if (hint != "")
+                        value = std::stod(hint);
+                    else
+                        value = 0.0;
+                }
+            }
+
+            return value;
+        }
+
+        //template<typename T>
+        //static T get_parameter_initial(file_info& fi, const parameter_info& pi)
+        //{
+        //    return {};
+        //}
+
+        //template<>
+        //static std::string get_parameter_initial(file_info& fi, const parameter_info& pi)
+        //{
+        //    std::string hint;
+        //    bool is_array = is_array_type(pi.type);
+        //    if (is_array)
+        //    {
+        //        if (pi.restrictions.set_count.size() > 0)
+        //            hint = pi.restrictions.set_count[0];
+        //        else if (pi.restrictions.min_count != "")
+        //            hint = pi.restrictions.min_count;
+        //        else if (pi.restrictions.max_count != "")
+        //            hint = "0";
+        //    }
+        //    else
+        //    {
+        //        type_info* ti = get_type_info(fi, pi.type);
+
+        //        if (pi.required)
+        //            hint = pi.hint;
+        //        else if (pi.default_ != "")
+        //            hint = pi.default_;
+        //        else
+        //            hint = pi.hint;
+
+        //        if (hint == "")
+        //        {
+        //            if (pi.restrictions.set_.size() > 0)
+        //                hint = pi.restrictions.set_[0];
+        //            else if (pi.restrictions.min != "" && pi.restrictions.max != "")
+        //            {
+        //                if (std::stoi(pi.restrictions.min) <= 0 && std::stoi(pi.restrictions.max) >= 0)
+        //                    hint = "0";
+        //                else
+        //                {
+        //                    int abs_min = std::abs(std::stoi(pi.restrictions.min));
+        //                    int abs_max = std::abs(std::stoi(pi.restrictions.max));
+        //                    hint = abs_min <= abs_max ? pi.restrictions.min : pi.restrictions.max;
+        //                }
+        //            }
+        //            else if (pi.restrictions.min != "")
+        //            {
+        //                if (std::stoi(pi.restrictions.min) <= 0)
+        //                    hint = "0";
+        //                else
+        //                    hint = pi.restrictions.min;
+        //            }
+        //            else if (pi.restrictions.max != "")
+        //            {
+        //                if (std::stoi(pi.restrictions.max) >= 0)
+        //                    hint = "0";
+        //                else
+        //                    hint = pi.restrictions.max;
+        //            }
+        //        }
+
+        //        if (ti != nullptr && ti->type == "enum" && ti->values.size() > 0)
+        //        {
+        //            if (hint == "")
+        //                hint = "0"; // index of first enum element
+        //            else
+        //            {
+        //                auto it = std::find_if(ti->values.cbegin(), ti->values.cend(), [hint](const auto& v) { return v.first == hint; });
+        //                if (it != ti->values.cend())
+        //                    hint = std::to_string(std::distance(ti->values.cbegin(), it));
+        //                else
+        //                    hint = "0"; // index of first enum element
+        //            }
+        //            //hint = ti->values[0].first;
+        //        }
+        //    }
+
+        //    if (hint == "")
+        //    { }
+
+        //    return hint;
+        //}
+
+        //template<>
+        //static int get_parameter_initial(file_info& fi, const parameter_info& pi)
+        //{
+        //    return std::stoi(get_parameter_initial<std::string>(fi, pi));
+        //}
+
+        //template<>
+        //static double get_parameter_initial(file_info& fi, const parameter_info& pi)
+        //{
+        //    return std::stod(get_parameter_initial<std::string>(fi, pi));
+        //}
+
+        //template<>
+        //static bool get_parameter_initial(file_info& fi, const parameter_info& pi)
+        //{
+        //    return get_parameter_initial<std::string>(fi, pi) == "true" ? true : false;
+        //}
+
+        static std::string get_parameter_display_name(const parameter_info& pi)
+        {
+            if (pi.display_name != "")
+                return pi.display_name;
+            else
+                return pi.name;
+        }
+
+        static bool get_parameter_optional(const parameter_info& pi)
+        {
+            if (!pi.required && pi.default_ == "")
+                return true;
+            else
+                return false;
+        }
+
         static std::string get_hint_html(const struct_types type, const std::string& name)
         {
             if (type == struct_types::file_info)
@@ -191,6 +546,53 @@ namespace parameters_compiler
             }
 			return ppi;
 		}
+
+        static bool extract_array_file_info(file_info& fi, const std::string& type, const std::string& name, file_info& afi)
+        {
+            afi = {};
+
+            // Работает только для массивов пользовательского типа данных, не перечислений
+            // Находим тип элемента массива, переносим все его параметры в основную секцию
+            // Все типы, которыые идут после этого нам не нужны,их удаляем
+            // Имя и описание юнита заменяем на имя и описание параметра
+
+            auto pi = parameters_compiler::helper::get_parameter_info(fi, type, name);
+            if (pi == nullptr)
+                return false;
+
+            bool is_array = parameters_compiler::helper::is_array_type(pi->type);
+            bool is_inner_type = parameters_compiler::helper::is_inner_type(pi->type);
+
+            if (is_array && !is_inner_type)
+            {
+                std::string array_type = parameters_compiler::helper::get_array_type(pi->type);
+
+                qDebug() << QString::fromStdString(array_type);
+                auto pti = get_type_info(fi, array_type);
+
+                if (pti == nullptr || pti->type != "yml")
+                    return false;
+
+                afi.format = fi.format;
+                afi.info = fi.info;
+                afi.info.id = pti->name;
+                afi.info.display_name = pi->display_name;
+                afi.info.description = pi->description;
+                afi.parameters = pti->parameters;
+
+                for (const auto& t : fi.types)
+                {
+                    if (t.name != array_type)
+                        afi.types.push_back(t);
+                    else
+                        break;
+                }
+            }
+            else
+                return false;
+
+            return true;
+        }
 
         static bool set_parameter_info(file_info& fi, const std::string& type, const parameter_info& pi)
         {
