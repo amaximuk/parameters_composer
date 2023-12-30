@@ -776,7 +776,7 @@ bool MainWindow::Compile()
         return false;
     }
 
-    QFile fileYaml(QDir(workingDir).filePath("temp.h"));
+    QFile fileYaml(QDir(workingDir).filePath("temp.yml.h"));
     if (!fileYaml.open(QIODevice::ReadOnly))
     {
         QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл кода, скомпилированный из YAML не найден"));
@@ -796,13 +796,14 @@ bool MainWindow::Compile()
         return false;
     }
 
-    QByteArray bytesYaml = fileYaml.readAll();
-    QByteArray bytesJson = fileJson.readAll();
-    if (!std::equal(bytesYaml.cbegin(), bytesYaml.cend(), bytesJson.cbegin()))
-    {
-        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файлы YAML и JSON отличаются по содержимому"));
-        return false;
-    }
+    // Из-за сортировки полей в json это допустимо
+    //QByteArray bytesYaml = fileYaml.readAll();
+    //QByteArray bytesJson = fileJson.readAll();
+    //if (!std::equal(bytesYaml.cbegin(), bytesYaml.cend(), bytesJson.cbegin()))
+    //{
+    //    QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файлы YAML и JSON отличаются по содержимому"));
+    //    return false;
+    //}
 
     return true;
 }
@@ -840,12 +841,12 @@ void MainWindow::on_ViewCode_action()
     if (Compile())
     {
         QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
-        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.h")))
+        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.yml.h")))
         {
-            QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл temp.h не найден.\nЗапустите компиляцию!"));
+            QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл temp.yml.h не найден.\nЗапустите компиляцию!"));
             return;
         }
-        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.h"))));
+        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.yml.h"))));
     }
 }
 
@@ -854,12 +855,12 @@ void MainWindow::on_ViewHtml_action()
     if (Compile())
     {
         QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
-        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.html")))
+        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.yml.html")))
         {
             QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл temp.html не найден.\nЗапустите компиляцию!"));
             return;
         }
-        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.html"))));
+        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.yml.html"))));
     }
 }
 
