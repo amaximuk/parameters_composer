@@ -1,0 +1,8 @@
+set BINARY_DIR=@CMAKE_BINARY_DIR@
+set QT5_BINARY_DIR=@QT_ROOT_DEBUG@/bin
+
+cmake -E copy_directory "%QT5_BINARY_DIR%/archdatadir/plugins" "%BINARY_DIR%/Debug/plugins"
+cmake -E copy "qt.conf" "%BINARY_DIR%/Debug"
+cmake -E copy "%QT5_BINARY_DIR%/Qt5Cored.dll" "%BINARY_DIR%/Debug"
+cmake -E copy "%QT5_BINARY_DIR%/Qt5Guid.dll" "%BINARY_DIR%/Debug"
+cmake -E copy "%QT5_BINARY_DIR%/Qt5Widgetsd.dll" "%BINARY_DIR%/Debug"

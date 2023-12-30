@@ -21,8 +21,8 @@
 #include <QSettings>
 
 #include <fstream>
-
-#include "parameters_compiler_helper.h"
+#include "yaml_types.h"
+#include "yaml_helper.h"
 #include "yaml_parser.h"
 #include "yaml_writer.h"
 #include "json_writer.h"
@@ -241,8 +241,9 @@ bool MainWindow::OpenFileInternal(QString fileName, bool is_json)
         return false;
     }
 
-    parameters_compiler::file_info fi{};
-    if (!yaml::parser::parse(fileName.toStdString(), fi))
+    yaml::file_info fi{};
+    yaml::parser yp(false);
+    if (!yp.parse(fileName.toStdString(), fi))
     {
         QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Ошибка разбора файла %1").arg(fileName));
         return false;
@@ -257,7 +258,7 @@ bool MainWindow::OpenFileInternal(QString fileName, bool is_json)
 
     fileInfo_ = fi;
 
-    for (const auto& type : parameters_compiler::helper::get_user_type_names(fileInfo_))
+    for (const auto& type : yaml::helper::file::get_user_types(fileInfo_))
     {
         QWidget* widgetTabType = CreateTypeTabWidget(QString::fromStdString(type));
         tabWidget_->addTab(widgetTabType, QString::fromStdString(type));
@@ -451,14 +452,14 @@ bool MainWindow::ApplyInternal(QString cmakeFilePath)
     }
 
     // Добавляем имя и параметры
-    parameters_compiler::file_info fi{};
+    yaml::file_info fi{};
     fi.info.id = targetName.toStdString();
     for (const auto& p : parameters)
     {
         QString name = refactoring::helper::get_parameter_name(cppText, p);
         QString description = refactoring::helper::get_parameter_description(cppText, p);
 
-        parameters_compiler::parameter_info pi{};
+        yaml::parameter_info pi{};
         pi.name = name == "" ? p.toStdString() : name.toStdString();
         pi.required = true;
         pi.type = "string";
@@ -467,7 +468,8 @@ bool MainWindow::ApplyInternal(QString cmakeFilePath)
     }
 
     // Сохраняем файл YAML на диск
-    yaml::writer::write(paramsFilePath.toStdString(), fi);
+    yaml::writer writer{};
+    writer.write(paramsFilePath.toStdString(), fi);
     if (!OpenFileInternal(paramsFilePath, false))
         return false; // Message inside OpenFileInternal
 
@@ -596,14 +598,14 @@ void MainWindow::on_SaveFile_action()
             return;
 
         std::string message;
-        if (!parameters_compiler::helper::validate(fileInfo_, message))
+        if (!yaml::helper::file::validate(fileInfo_, message))
         {
             QMessageBox::critical(this, "Validate error", QString::fromLocal8Bit(message.c_str()));
             return;
         }
 
         bool have_type_loop = false;
-        if (!parameters_compiler::helper::rearrange_types(fileInfo_, have_type_loop))
+        if (!yaml::helper::file::rearrange_types(fileInfo_, have_type_loop))
         {
             QMessageBox::critical(this, "Rearrange error", QString::fromLocal8Bit("Ошибка переупорядочивания пользовательских типов перед сохранением"));
             return;
@@ -620,7 +622,8 @@ void MainWindow::on_SaveFile_action()
         }
         else
         {
-            if (!yaml::writer::write(currentFileName_.toStdString(), fileInfo_))
+            yaml::writer writer{};
+            if (!writer.write(currentFileName_.toStdString(), fileInfo_))
                 return;
         }
 
@@ -657,7 +660,7 @@ void MainWindow::on_AddType_action()
     TabControls& tc = GetTabControls(text);
     qobject_cast<QLineEdit*>(tc.Info["NAME"])->setText(text);
 
-    parameters_compiler::type_info ti{};
+    yaml::type_info ti{};
     ti.name = text.toStdString();
     fileInfo_.types.push_back(ti);
 
@@ -773,7 +776,7 @@ bool MainWindow::Compile()
         return false;
     }
 
-    QFile fileYaml(QDir(workingDir).filePath("temp.yml.h"));
+    QFile fileYaml(QDir(workingDir).filePath("temp.h"));
     if (!fileYaml.open(QIODevice::ReadOnly))
     {
         QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл кода, скомпилированный из YAML не найден"));
@@ -837,12 +840,12 @@ void MainWindow::on_ViewCode_action()
     if (Compile())
     {
         QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
-        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.yml.h")))
+        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.h")))
         {
-            QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл temp.yml.h не найден.\nЗапустите компиляцию!"));
+            QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл temp.h не найден.\nЗапустите компиляцию!"));
             return;
         }
-        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.yml.h"))));
+        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.h"))));
     }
 }
 
@@ -851,12 +854,12 @@ void MainWindow::on_ViewHtml_action()
     if (Compile())
     {
         QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
-        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.yml.html")))
+        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.html")))
         {
-            QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл temp.yml.html не найден.\nЗапустите компиляцию!"));
+            QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл temp.html не найден.\nЗапустите компиляцию!"));
             return;
         }
-        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.yml.html"))));
+        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.html"))));
     }
 }
 
@@ -997,8 +1000,8 @@ void MainWindow::CreateUi()
     //tabWidget->addTab(widgetTabProperties, "Main");
     //setCentralWidget(tabWidget);
 
-    focusFilter_ = new FocusFilter;
-    connect(focusFilter_, &FocusFilter::onFocusChanged, this, &MainWindow::on_FocusChanged);
+    //focusFilter_ = new FocusFilter;
+    //connect(focusFilter_, &FocusFilter::onFocusChanged, this, &MainWindow::on_FocusChanged);
 
     QWidget* mainWidget = CreateMainWidget();
     setCentralWidget(mainWidget);
@@ -1100,7 +1103,7 @@ QWidget* MainWindow::CreatePropertyListWidget(QString type)
     listWidget->setProperty("name", "PARAMETERS");
     listWidget->setProperty("group", static_cast<int>(ControlsGroup::Parameters));
     listWidget->setProperty("type", type);
-    listWidget->installEventFilter(focusFilter_);
+    //listWidget->installEventFilter(focusFilter_);
 
     connect(listWidget, &QListWidget::currentItemChanged, this, &MainWindow::on_CurrentItemChanged);
 
@@ -1131,7 +1134,7 @@ void MainWindow::AddLineEditProperty(QGridLayout* gridLayout, QString name, int 
     lineEdit->setProperty("name", name);
     lineEdit->setProperty("group", static_cast<int>(group));
     lineEdit->setProperty("type", type);
-    lineEdit->installEventFilter(focusFilter_);
+    //lineEdit->installEventFilter(focusFilter_);
 
     connect(lineEdit, &QLineEdit::editingFinished, this, &MainWindow::on_EditingFinished);
     gridLayout->addWidget(lineEdit, index, 1);
@@ -1147,7 +1150,7 @@ void MainWindow::AddPlainTextEditProperty(QGridLayout* gridLayout, QString name,
     plainTextEdit->setProperty("name", name);
     plainTextEdit->setProperty("group", static_cast<int>(group));
     plainTextEdit->setProperty("type", type);
-    plainTextEdit->installEventFilter(focusFilter_);
+    //plainTextEdit->installEventFilter(focusFilter_);
 
     connect(plainTextEdit, &QPlainTextEdit::textChanged, this, &MainWindow::on_TextChanged);
     gridLayout->addWidget(plainTextEdit, index, 1);
@@ -1163,7 +1166,7 @@ void MainWindow::AddCheckBoxProperty(QGridLayout* gridLayout, QString name, int 
     checkBox->setProperty("name", name);
     checkBox->setProperty("group", static_cast<int>(group));
     checkBox->setProperty("type", type);
-    checkBox->installEventFilter(focusFilter_);
+    //checkBox->installEventFilter(focusFilter_);
 
     connect(checkBox, &QCheckBox::stateChanged, this, &MainWindow::on_StateChanged);
     gridLayout->addWidget(checkBox, index, 1);
@@ -1187,7 +1190,7 @@ void MainWindow::AddListProperty(QGridLayout* gridLayout, QString name, int inde
     listWidget->setProperty("name", name);
     listWidget->setProperty("group", static_cast<int>(group));
     listWidget->setProperty("type", type);
-    listWidget->installEventFilter(focusFilter_);
+    //listWidget->installEventFilter(focusFilter_);
 
     QVBoxLayout* vBoxLayoutPropertiesRestrictionsSet = new QVBoxLayout;
     vBoxLayoutPropertiesRestrictionsSet->addWidget(widgetPropertiesRestrictionsSetButtons);
@@ -1212,9 +1215,9 @@ void MainWindow::AddComboBoxPropertyType(QGridLayout* gridLayout, QString name, 
     comboBox->setProperty("name", name);
     comboBox->setProperty("group", static_cast<int>(group));
     comboBox->setProperty("type", type);
-    comboBox->installEventFilter(focusFilter_);
+    //comboBox->installEventFilter(focusFilter_);
 
-    for (const auto& s : parameters_compiler::helper::get_property_type_names(fileInfo_))
+    for (const auto& s : yaml::helper::file::get_parameter_types(fileInfo_))
         comboBox->addItem(QString::fromStdString(s));
 
     connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::on_CurrentIndexChanged);
@@ -1233,9 +1236,9 @@ void MainWindow::AddComboBoxTypeType(QGridLayout* gridLayout, QString name, int 
     comboBox->setProperty("name", name);
     comboBox->setProperty("group", static_cast<int>(group));
     comboBox->setProperty("type", type);
-    comboBox->installEventFilter(focusFilter_);
+    //comboBox->installEventFilter(focusFilter_);
 
-    for (const auto& s : parameters_compiler::helper::get_type_type_names())
+    for (const auto& s : yaml::helper::file::get_type_types())
         comboBox->addItem(QString::fromStdString(s));
 
     connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::on_CurrentIndexChanged);
@@ -1253,7 +1256,7 @@ void MainWindow::AddPictogramProperty(QGridLayout* gridLayout, QString name, int
     lineEdit->setProperty("name", name);
     lineEdit->setProperty("group", static_cast<int>(group));
     lineEdit->setProperty("type", type);
-    lineEdit->installEventFilter(focusFilter_);
+    //lineEdit->installEventFilter(focusFilter_);
     connect(lineEdit, &QLineEdit::editingFinished, this, &MainWindow::on_EditingFinished);
     
     QString buttonName = QString("%1_BUTTON").arg(name);
@@ -1292,7 +1295,7 @@ void MainWindow::AddGroupWidget(QWidget* groupWidget, QString name, QString type
     tc[name] = groupWidget;
 }
 
-bool MainWindow::ReadCurrentParameter(QString type, parameters_compiler::parameter_info& pi)
+bool MainWindow::ReadCurrentParameter(QString type, yaml::parameter_info& pi)
 {
     TabControls& tc = GetTabControls(type);
 
@@ -1337,7 +1340,7 @@ bool MainWindow::HaveCurrentParameter(QString type)
     return (listWidget->selectedItems().size() > 0);
 }
 
-bool MainWindow::ReadCurrentMainInfo(parameters_compiler::info_info& mi)
+bool MainWindow::ReadCurrentMainInfo(yaml::info_info& mi)
 {
     TabControls& tc = GetTabControls("Main");
 
@@ -1353,7 +1356,7 @@ bool MainWindow::ReadCurrentMainInfo(parameters_compiler::info_info& mi)
     return true;
 }
 
-bool MainWindow::ReadCurrentTypeInfo(QString type, parameters_compiler::type_info& ti)
+bool MainWindow::ReadCurrentTypeInfo(QString type, yaml::type_info& ti)
 {
     TabControls& tc = GetTabControls(type);
 
@@ -1367,7 +1370,7 @@ bool MainWindow::ReadCurrentTypeInfo(QString type, parameters_compiler::type_inf
     {
         QString v = listWidgetValues->item(i)->text();
         QStringList sl = v.split(" -> ");
-        ti.values.push_back({ sl[0].toStdString(), sl[1].toStdString() });
+        ti.values.push_back(std::make_pair(sl[0].toStdString(), sl[1].toStdString()));
     }
 
     ti.includes.clear();
@@ -1380,37 +1383,37 @@ bool MainWindow::ReadCurrentTypeInfo(QString type, parameters_compiler::type_inf
 
 bool MainWindow::ReadCurrentFileInfo()
 {
-    parameters_compiler::info_info iim{};
+    yaml::info_info iim{};
     if (!ReadCurrentMainInfo(iim))
         return false;
     fileInfo_.info = iim;
 
     if (HaveCurrentParameter("Main"))
     {
-        parameters_compiler::parameter_info pim{};
+        yaml::parameter_info pim{};
         if (!ReadCurrentParameter("Main", pim))
             return false;
 
-        if (!parameters_compiler::helper::set_parameter_info(fileInfo_, "Main", pim))
+        if (!yaml::helper::type::set_parameter(fileInfo_, "Main", pim))
             return false;
     }
 
-    for (const auto& type : parameters_compiler::helper::get_user_type_names(fileInfo_))
+    for (const auto& type : yaml::helper::file::get_user_types(fileInfo_))
     {
-        parameters_compiler::type_info tit{};
+        yaml::type_info tit{};
         if (!ReadCurrentTypeInfo(QString::fromStdString(type), tit))
             return false;
 
-        if (!parameters_compiler::helper::set_type_info(fileInfo_, tit.name, tit, true))
+        if (!yaml::helper::file::set_type(fileInfo_, tit.name, tit, true))
             return false;
 
         if (HaveCurrentParameter(QString::fromStdString(type)))
         {
-            parameters_compiler::parameter_info pit;
+            yaml::parameter_info pit;
             if (!ReadCurrentParameter(QString::fromStdString(tit.name), pit))
                 return false;
 
-            if (!parameters_compiler::helper::set_parameter_info(fileInfo_, tit.name, pit))
+            if (!yaml::helper::type::set_parameter(fileInfo_, tit.name, pit))
                 return false;
         }
     }
@@ -1425,7 +1428,7 @@ bool MainWindow::FillPropertyTypeNames()
     QComboBox* comboBoxMain = qobject_cast<QComboBox*>(tcm.Properties["TYPE"]);
     QString textMain = comboBoxMain->currentText();
     comboBoxMain->clear();
-    for (const auto& s : parameters_compiler::helper::get_property_type_names(fileInfo_))
+    for (const auto& s : yaml::helper::file::get_parameter_types(fileInfo_))
         comboBoxMain->addItem(QString::fromStdString(s));
     comboBoxMain->setCurrentText(textMain);
 
@@ -1436,7 +1439,7 @@ bool MainWindow::FillPropertyTypeNames()
         QComboBox* comboBoxPropertyType = qobject_cast<QComboBox*>(tct.Properties["TYPE"]);
         QString textPropertyType = comboBoxPropertyType->currentText();
         comboBoxPropertyType->clear();
-        for (const auto& s : parameters_compiler::helper::get_property_type_names(fileInfo_))
+        for (const auto& s : yaml::helper::file::get_parameter_types(fileInfo_))
             comboBoxPropertyType->addItem(QString::fromStdString(s));
         comboBoxPropertyType->setCurrentText(textPropertyType);
     }
@@ -1454,7 +1457,7 @@ bool MainWindow::RenamePropertyTypeNames(QString oldName, QString newName)
     QComboBox* comboBoxMain = qobject_cast<QComboBox*>(tcm.Properties["TYPE"]);
     QString textMain = comboBoxMain->currentText();
     comboBoxMain->clear();
-    for (const auto& s : parameters_compiler::helper::get_property_type_names(fileInfo_))
+    for (const auto& s : yaml::helper::file::get_parameter_types(fileInfo_))
         comboBoxMain->addItem(QString::fromStdString(s));
     if (textMain == oldName)
         comboBoxMain->setCurrentText(newName);
@@ -1470,7 +1473,7 @@ bool MainWindow::RenamePropertyTypeNames(QString oldName, QString newName)
         QComboBox* comboBoxPropertyType = qobject_cast<QComboBox*>(tct.Properties["TYPE"]);
         QString textPropertyType = comboBoxPropertyType->currentText();
         comboBoxPropertyType->clear();
-        for (const auto& s : parameters_compiler::helper::get_property_type_names(fileInfo_))
+        for (const auto& s : yaml::helper::file::get_parameter_types(fileInfo_))
             comboBoxPropertyType->addItem(QString::fromStdString(s));
         if (textPropertyType == oldName)
             comboBoxPropertyType->setCurrentText(newName);
@@ -1674,7 +1677,7 @@ void MainWindow::on_ListControlClicked()
             return;
 
         // Validate
-        if (parameters_compiler::helper::get_parameter_info(fileInfo_, type.toStdString(), text.toStdString()))
+        if (yaml::helper::parameter::get_parameter_info(fileInfo_, type.toStdString(), text.toStdString()))
         {
             QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Параметр с именем %1 уже существует").arg(text));
             return;
@@ -1686,11 +1689,11 @@ void MainWindow::on_ListControlClicked()
         listWidget->addItem(new QListWidgetItem(text));
 
         // Add to fileInfo_
-        parameters_compiler::parameter_info pi{};
+        yaml::parameter_info pi{};
         pi.name = text.toStdString();
         pi.type = "string";
         pi.required = true;
-        if (!parameters_compiler::helper::add_parameter_info(fileInfo_, type.toStdString(), pi))
+        if (!yaml::helper::type::add_parameter(fileInfo_, type.toStdString(), pi))
             return;
 
         // Update
@@ -1717,7 +1720,7 @@ void MainWindow::on_ListControlClicked()
         delete listWidget->currentItem();
 
         // Remove from fileInfo_
-        if (!parameters_compiler::helper::remove_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString()))
+        if (!yaml::helper::type::remove_parameter(fileInfo_, type.toStdString(), propertyName.toStdString()))
             return;
 
         modified_ = true;
@@ -1742,7 +1745,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->setCurrentRow(currentRow - 1);
 
         // Move in fileInfo_
-        if (!parameters_compiler::helper::move_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString(), true))
+        if (!yaml::helper::type::move_parameter(fileInfo_, type.toStdString(), propertyName.toStdString(), true))
             return;
 
         modified_ = true;
@@ -1767,7 +1770,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->setCurrentRow(currentRow + 1);
 
         // Move in fileInfo_
-        if (!parameters_compiler::helper::move_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString(), false))
+        if (!yaml::helper::type::move_parameter(fileInfo_, type.toStdString(), propertyName.toStdString(), false))
             return;
 
         modified_ = true;
@@ -1790,14 +1793,14 @@ void MainWindow::on_ListControlClicked()
             return;
 
         // Validate
-        if (parameters_compiler::helper::get_parameter_info(fileInfo_, type.toStdString(), text.toStdString()))
+        if (yaml::helper::parameter::get_parameter_info(fileInfo_, type.toStdString(), text.toStdString()))
         {
             QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Параметр с именем %1 уже существует").arg(text));
             return;
         }
 
         // Get parameter for copy
-        auto oldPi = parameters_compiler::helper::get_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString());
+        auto oldPi = yaml::helper::parameter::get_parameter_info(fileInfo_, type.toStdString(), propertyName.toStdString());
         if (oldPi == nullptr)
             return;
 
@@ -1805,9 +1808,9 @@ void MainWindow::on_ListControlClicked()
         listWidget->addItem(new QListWidgetItem(text));
 
         // Add to fileInfo_
-        parameters_compiler::parameter_info pi{ *oldPi };
+        yaml::parameter_info pi{ *oldPi };
         pi.name = text.toStdString();
-        if (!parameters_compiler::helper::add_parameter_info(fileInfo_, type.toStdString(), pi))
+        if (!yaml::helper::type::add_parameter(fileInfo_, type.toStdString(), pi))
             return;
 
         // Update
@@ -1824,7 +1827,7 @@ void MainWindow::on_ListControlClicked()
             return;
 
         // Validate
-        if (parameters_compiler::helper::have_info_value(fileInfo_, type.toStdString(), textName.toStdString()))
+        if (yaml::helper::type::have_value(fileInfo_, type.toStdString(), textName.toStdString()))
         {
             QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Значение с именем %1 уже существует").arg(textName));
             return;
@@ -1840,7 +1843,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->addItem(new QListWidgetItem(textName + " -> " + textValue));
 
         // Add to fileInfo_
-        if (!parameters_compiler::helper::add_info_value(fileInfo_, type.toStdString(), textName.toStdString(), textValue.toStdString()))
+        if (!yaml::helper::type::add_value(fileInfo_, type.toStdString(), textName.toStdString(), textValue.toStdString()))
             return;
 
         // Update
@@ -1870,7 +1873,7 @@ void MainWindow::on_ListControlClicked()
         const auto s = propertyName.split(" -> ");
         if (s.size() < 1)
             return;
-        if (!parameters_compiler::helper::remove_info_value(fileInfo_, type.toStdString(), s[0].toStdString()))
+        if (!yaml::helper::type::remove_value(fileInfo_, type.toStdString(), s[0].toStdString()))
             return;
 
         modified_ = true;
@@ -1898,7 +1901,7 @@ void MainWindow::on_ListControlClicked()
         const auto s = propertyName.split(" -> ");
         if (s.size() < 1)
             return;
-        if (!parameters_compiler::helper::move_info_value(fileInfo_, type.toStdString(), s[0].toStdString(), true))
+        if (!yaml::helper::type::move_value(fileInfo_, type.toStdString(), s[0].toStdString(), true))
             return;
 
         modified_ = true;
@@ -1926,7 +1929,7 @@ void MainWindow::on_ListControlClicked()
         const auto s = propertyName.split(" -> ");
         if (s.size() < 1)
             return;
-        if (!parameters_compiler::helper::move_info_value(fileInfo_, type.toStdString(), s[0].toStdString(), false))
+        if (!yaml::helper::type::move_value(fileInfo_, type.toStdString(), s[0].toStdString(), false))
             return;
 
         modified_ = true;
@@ -1940,7 +1943,7 @@ void MainWindow::on_ListControlClicked()
             return;
 
         // Validate
-        if (parameters_compiler::helper::have_info_include(fileInfo_, type.toStdString(), text.toStdString()))
+        if (yaml::helper::type::have_include(fileInfo_, type.toStdString(), text.toStdString()))
         {
             QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Значение %1 уже существует").arg(text));
             return;
@@ -1952,7 +1955,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->addItem(new QListWidgetItem(text));
 
         // Add to fileInfo_
-        if (!parameters_compiler::helper::add_info_include(fileInfo_, type.toStdString(), text.toStdString()))
+        if (!yaml::helper::type::add_include(fileInfo_, type.toStdString(), text.toStdString()))
             return;
 
         // Update
@@ -1979,7 +1982,7 @@ void MainWindow::on_ListControlClicked()
         delete listWidget->currentItem();
 
         // Remove from fileInfo_
-        if (!parameters_compiler::helper::remove_info_include(fileInfo_, type.toStdString(), propertyName.toStdString()))
+        if (!yaml::helper::type::remove_include(fileInfo_, type.toStdString(), propertyName.toStdString()))
             return;
 
         modified_ = true;
@@ -2004,7 +2007,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->setCurrentRow(currentRow - 1);
 
         // Move in fileInfo_
-        if (!parameters_compiler::helper::move_info_include(fileInfo_, type.toStdString(), propertyName.toStdString(), true))
+        if (!yaml::helper::type::move_include(fileInfo_, type.toStdString(), propertyName.toStdString(), true))
             return;
 
         modified_ = true;
@@ -2029,7 +2032,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->setCurrentRow(currentRow + 1);
 
         // Move in fileInfo_
-        if (!parameters_compiler::helper::move_info_include(fileInfo_, type.toStdString(), propertyName.toStdString(), false))
+        if (!yaml::helper::type::move_include(fileInfo_, type.toStdString(), propertyName.toStdString(), false))
             return;
 
         modified_ = true;
@@ -2047,7 +2050,7 @@ void MainWindow::on_ListControlClicked()
         QString propertyName = qobject_cast<QLineEdit*>(tc["NAME"])->text();
 
         // Validate
-        if (parameters_compiler::helper::have_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), text.toStdString()))
+        if (yaml::helper::restrictions::have_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), text.toStdString()))
         {
             QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Значение %1 уже существует").arg(text));
             return;
@@ -2058,7 +2061,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->addItem(new QListWidgetItem(text));
 
         // Add to fileInfo_
-        if (!parameters_compiler::helper::add_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), text.toStdString()))
+        if (!yaml::helper::restrictions::add_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), text.toStdString()))
             return;
 
         // Update
@@ -2088,7 +2091,7 @@ void MainWindow::on_ListControlClicked()
         delete listWidget->currentItem();
 
         // Remove from fileInfo_
-        if (!parameters_compiler::helper::remove_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString()))
+        if (!yaml::helper::restrictions::remove_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString()))
             return;
 
         modified_ = true;
@@ -2116,7 +2119,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->setCurrentRow(currentRow - 1);
 
         // Move in fileInfo_
-        if (!parameters_compiler::helper::move_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), true))
+        if (!yaml::helper::restrictions::move_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), true))
             return;
 
         modified_ = true;
@@ -2144,7 +2147,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->setCurrentRow(currentRow + 1);
 
         // Move in fileInfo_
-        if (!parameters_compiler::helper::move_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), false))
+        if (!yaml::helper::restrictions::move_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), false))
             return;
 
         modified_ = true;
@@ -2162,7 +2165,7 @@ void MainWindow::on_ListControlClicked()
         QString propertyName = qobject_cast<QLineEdit*>(tc["NAME"])->text();
 
         // Validate
-        if (parameters_compiler::helper::have_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), text.toStdString()))
+        if (yaml::helper::restrictions::have_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), text.toStdString()))
         {
             QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Значение %1 уже существует").arg(text));
             return;
@@ -2173,7 +2176,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->addItem(new QListWidgetItem(text));
 
         // Add to fileInfo_
-        if (!parameters_compiler::helper::add_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), text.toStdString()))
+        if (!yaml::helper::restrictions::add_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), text.toStdString()))
             return;
 
         // Update
@@ -2203,7 +2206,7 @@ void MainWindow::on_ListControlClicked()
         delete listWidget->currentItem();
 
         // Remove from fileInfo_
-        if (!parameters_compiler::helper::remove_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString()))
+        if (!yaml::helper::restrictions::remove_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString()))
             return;
 
         modified_ = true;
@@ -2231,7 +2234,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->setCurrentRow(currentRow - 1);
 
         // Move in fileInfo_
-        if (!parameters_compiler::helper::move_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), true))
+        if (!yaml::helper::restrictions::move_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), true))
             return;
 
         modified_ = true;
@@ -2259,7 +2262,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->setCurrentRow(currentRow + 1);
 
         // Move in fileInfo_
-        if (!parameters_compiler::helper::move_properties_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), false))
+        if (!yaml::helper::restrictions::move_set_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), false))
             return;
 
         modified_ = true;
@@ -2276,7 +2279,7 @@ void MainWindow::on_ListControlClicked()
         QString propertyName = qobject_cast<QLineEdit*>(tc["NAME"])->text();
 
         // Validate
-        if (parameters_compiler::helper::have_properties_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), QString("%1").arg(value).toStdString()))
+        if (yaml::helper::restrictions::have_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), QString("%1").arg(value).toStdString()))
         {
             QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Значение %1 уже существует").arg(value));
             return;
@@ -2287,7 +2290,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->addItem(new QListWidgetItem(QString("%1").arg(value)));
 
         // Add to fileInfo_
-        if (!parameters_compiler::helper::add_properties_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), QString("%1").arg(value).toStdString()))
+        if (!yaml::helper::restrictions::add_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), QString("%1").arg(value).toStdString()))
             return;
 
         // Update
@@ -2317,7 +2320,7 @@ void MainWindow::on_ListControlClicked()
         delete listWidget->currentItem();
 
         // Remove from fileInfo_
-        if (!parameters_compiler::helper::remove_properties_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString()))
+        if (!yaml::helper::restrictions::remove_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString()))
             return;
 
         modified_ = true;
@@ -2345,7 +2348,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->setCurrentRow(currentRow - 1);
 
         // Move in fileInfo_
-        if (!parameters_compiler::helper::move_properties_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), true))
+        if (!yaml::helper::restrictions::move_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), true))
             return;
 
         modified_ = true;
@@ -2373,7 +2376,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->setCurrentRow(currentRow + 1);
 
         // Move in fileInfo_
-        if (!parameters_compiler::helper::move_properties_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), false))
+        if (!yaml::helper::restrictions::move_set_count_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), false))
             return;
 
         modified_ = true;
@@ -2391,7 +2394,7 @@ void MainWindow::on_ListControlClicked()
         QString propertyName = qobject_cast<QLineEdit*>(tc["NAME"])->text();
 
         // Validate
-        if (parameters_compiler::helper::have_properties_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), text.toStdString()))
+        if (yaml::helper::restrictions::have_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), text.toStdString()))
         {
             QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Значение %1 уже существует").arg(text));
             return;
@@ -2402,7 +2405,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->addItem(new QListWidgetItem(text));
 
         // Add to fileInfo_
-        if (!parameters_compiler::helper::add_properties_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), text.toStdString()))
+        if (!yaml::helper::restrictions::add_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), text.toStdString()))
             return;
 
         // Update
@@ -2432,7 +2435,7 @@ void MainWindow::on_ListControlClicked()
         delete listWidget->currentItem();
 
         // Remove from fileInfo_
-        if (!parameters_compiler::helper::remove_properties_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString()))
+        if (!yaml::helper::restrictions::remove_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString()))
             return;
 
         modified_ = true;
@@ -2460,7 +2463,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->setCurrentRow(currentRow - 1);
 
         // Move in fileInfo_
-        if (!parameters_compiler::helper::move_properties_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), true))
+        if (!yaml::helper::restrictions::move_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), true))
             return;
 
         modified_ = true;
@@ -2488,7 +2491,7 @@ void MainWindow::on_ListControlClicked()
         listWidget->setCurrentRow(currentRow + 1);
 
         // Move in fileInfo_
-        if (!parameters_compiler::helper::move_properties_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), false))
+        if (!yaml::helper::restrictions::move_ids_value(fileInfo_, type.toStdString(), propertyName.toStdString(), value.toStdString(), false))
             return;
 
         modified_ = true;
@@ -2503,20 +2506,20 @@ void MainWindow::on_CurrentItemChanged(QListWidgetItem *current, QListWidgetItem
     QListWidget* list = qobject_cast<QListWidget*>(sender());
     QString type = list->property("type").toString();
 
-    parameters_compiler::parameter_info pic{};
+    yaml::parameter_info pic{};
     if (current != nullptr)
     {
-        parameters_compiler::parameter_info* ppic = parameters_compiler::helper::get_parameter_info(fileInfo_, type.toStdString(), current->text().toStdString());
+        yaml::parameter_info* ppic = yaml::helper::parameter::get_parameter_info(fileInfo_, type.toStdString(), current->text().toStdString());
         if (ppic != nullptr) pic = *ppic;
     }
 
     if (previous != nullptr)
     {
-        parameters_compiler::parameter_info pip{};
+        yaml::parameter_info pip{};
         if (!ReadCurrentParameter(type, pip))
             return;
 
-        if (!parameters_compiler::helper::set_parameter_info(fileInfo_, type.toStdString(), pip))
+        if (!yaml::helper::type::set_parameter(fileInfo_, type.toStdString(), pip))
             return;
     }
 
@@ -2526,7 +2529,7 @@ void MainWindow::on_CurrentItemChanged(QListWidgetItem *current, QListWidgetItem
     qobject_cast<QComboBox*>(tc.Properties["TYPE"])->setCurrentText(QString::fromStdString(pic.type));
     qobject_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->setText(QString::fromStdString(pic.display_name));
     qobject_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->setPlainText(QString::fromStdString(pic.description));
-    qobject_cast<QCheckBox*>(tc.Properties["REQUIRED"])->setChecked(pic.required);
+    qobject_cast<QCheckBox*>(tc.Properties["REQUIRED"])->setChecked(pic.required == "true");
     qobject_cast<QLineEdit*>(tc.Properties["DEFAULT"])->setText(QString::fromStdString(pic.default_));
     qobject_cast<QLineEdit*>(tc.Properties["HINT"])->setText(QString::fromStdString(pic.hint));
 
@@ -2605,7 +2608,7 @@ void MainWindow::on_EditingFinished()
         QString oldName = type;
         QString newName = lineEdit->text();
 
-        if (parameters_compiler::helper::get_type_info(fileInfo_, newName.toStdString()))
+        if (yaml::helper::type::get_type_info(fileInfo_, newName.toStdString()))
         {
             QMessageBox::critical(this, "Error", QString::fromLocal8Bit("Тип с именем %1 уже существует").arg(newName));
             lineEdit->setText(oldName);
@@ -2623,7 +2626,7 @@ void MainWindow::on_EditingFinished()
         }
 
         // Update fileInfo_
-        if (!parameters_compiler::helper::rename_type(fileInfo_, oldName.toStdString(), newName.toStdString()))
+        if (!yaml::helper::file::rename_type(fileInfo_, oldName.toStdString(), newName.toStdString()))
             return;
 
         // Update controls
@@ -2655,7 +2658,7 @@ void MainWindow::on_EditingFinished()
         listWidget->selectedItems()[0]->setText(newName);
 
         // Update fileInfo_
-        if (!parameters_compiler::helper::rename_property(fileInfo_, type.toStdString(), oldName.toStdString(), newName.toStdString()))
+        if (!yaml::helper::type::rename_parameter(fileInfo_, type.toStdString(), oldName.toStdString(), newName.toStdString()))
             return;
     }
 
@@ -2710,13 +2713,13 @@ void MainWindow::on_CurrentIndexChanged(int index)
             }
         }
 
-        parameters_compiler::type_info tit{};
+        yaml::type_info tit{};
         if (!ReadCurrentTypeInfo(type, tit))
             return;
 
-        auto ti = parameters_compiler::helper::get_type_info(fileInfo_, type.toStdString());
+        auto ti = yaml::helper::type::get_type_info(fileInfo_, type.toStdString());
         ti->type = tit.type;
-        //if (!parameters_compiler::helper::set_type_info(fileInfo_, type.toStdString(), tit, true))
+        //if (!yaml::helper::set_type_info(fileInfo_, type.toStdString(), tit, true))
         //    return;
 
         FillPropertyTypeNames();
@@ -2734,7 +2737,7 @@ void MainWindow::on_CurrentIndexChanged(int index)
 void MainWindow::Update()
 {
     UpdateMain();
-    for (const auto& type : parameters_compiler::helper::get_user_type_names(fileInfo_))
+    for (const auto& type : yaml::helper::file::get_user_types(fileInfo_))
         UpdateType(QString::fromStdString(type));
 }
 
@@ -2764,7 +2767,7 @@ void MainWindow::UpdateMain()
 void MainWindow::UpdateType(QString type)
 {
     TabControls& tc = GetTabControls(type);
-    const auto& ti = parameters_compiler::helper::get_type_info(fileInfo_, type.toStdString());
+    const auto ti = yaml::helper::type::get_type_info(fileInfo_, type.toStdString());
 
     qobject_cast<QLineEdit*>(tc.Info["NAME"])->setText(QString::fromStdString(ti->name));
     qobject_cast<QComboBox*>(tc.Info["TYPE"])->setCurrentText(QString::fromStdString(ti->type));
@@ -2846,17 +2849,17 @@ bool MainWindow::SaveAsInternal(QString fileName, bool is_json, bool is_temp)
     if (!ReadCurrentFileInfo())
         return false;
 
-    parameters_compiler::file_info fi = fileInfo_;
+    yaml::file_info fi = fileInfo_;
 
     std::string message;
-    if (!parameters_compiler::helper::validate(fi, message))
+    if (!yaml::helper::file::validate(fi, message))
     {
         QMessageBox::critical(this, "Validate error", QString::fromLocal8Bit(message.c_str()));
         return false;
     }
 
     bool have_type_loop = false;
-    if (!parameters_compiler::helper::rearrange_types(fi, have_type_loop))
+    if (!yaml::helper::file::rearrange_types(fi, have_type_loop))
     {
         QMessageBox::critical(this, "Rearrange error", QString::fromLocal8Bit("Ошибка переупорядочивания пользовательских типов перед сохранением"));
         return false;
@@ -2873,7 +2876,8 @@ bool MainWindow::SaveAsInternal(QString fileName, bool is_json, bool is_temp)
     }
     else
     {
-        if (!yaml::writer::write(fileName.toStdString(), fi))
+        yaml::writer writer{};
+        if (!writer.write(fileName.toStdString(), fi))
             return false;
     }
 
@@ -2894,31 +2898,31 @@ void MainWindow::on_FocusChanged(QObject* sender, bool focus)
     ControlsGroup group = static_cast<ControlsGroup>(sender->property("group").toInt());
     QString name = sender->property("name").toString();
 
-    parameters_compiler::struct_types st;
+    yaml::struct_types st{ yaml::struct_types::file_info };
     if (type == "Main")
     {
         if (group == ControlsGroup::Info)
-            st = parameters_compiler::struct_types::info_info;
+            st = yaml::struct_types::info_info;
         else if (group == ControlsGroup::Properties)
-            st = parameters_compiler::struct_types::parameter_info;
+            st = yaml::struct_types::parameter_info;
         else if (group == ControlsGroup::Parameters)
-            st = parameters_compiler::struct_types::file_info;
+            st = yaml::struct_types::file_info;
     }
     else
     {
         if (group == ControlsGroup::Info)
-            st = parameters_compiler::struct_types::type_info;
+            st = yaml::struct_types::type_info;
         else if (group == ControlsGroup::Properties)
-            st = parameters_compiler::struct_types::parameter_info;
+            st = yaml::struct_types::parameter_info;
         else if (group == ControlsGroup::Parameters)
-            st = parameters_compiler::struct_types::type_info;
+            st = yaml::struct_types::type_info;
     }
 
-    QString text = QString::fromLocal8Bit(parameters_compiler::helper::get_hint_html(st, name.toStdString()).c_str());
+    QString text = QString::fromLocal8Bit(yaml::helper::common::get_hint_html_as_cp1251(st, name.toStdString()).c_str());
 
     // restrictions_info is a part of parameter_info, but on gui we not divide it
-    if (text == "" && st == parameters_compiler::struct_types::parameter_info)
-        text = QString::fromLocal8Bit(parameters_compiler::helper::get_hint_html(parameters_compiler::struct_types::restrictions_info, name.toStdString()).c_str());
+    if (text == "" && st == yaml::struct_types::parameter_info)
+        text = QString::fromLocal8Bit(yaml::helper::common::get_hint_html_as_cp1251(yaml::struct_types::restrictions_info, name.toStdString()).c_str());
 
     plainTextEditHint_->clear();
     plainTextEditHint_->appendHtml(QString("<p style='font-weight: bold; font-size: 14px;'>%1</p>").arg(name));

@@ -1,5 +1,4 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
 
 #include <QMainWindow>
 #include <QListWidgetItem>
@@ -7,8 +6,10 @@
 #include <QTabWidget>
 #include <QPlainTextEdit>
 
-#include "focus_filter.h"
-#include "parameters_compiler_types.h"
+//#include "focus_filter.h"
+#include "yaml_types.h"
+
+class FocusFilter;
 
 class MainWindow : public QMainWindow
 {
@@ -32,13 +33,13 @@ private:
 
 private:
     QString currentFileName_;
-    parameters_compiler::file_info fileInfo_;
+    yaml::file_info fileInfo_;
     QList<TabControls> tabs_;
     bool is_json_;
     bool modified_;
     QTabWidget* tabWidget_;
     QPlainTextEdit* plainTextEditHint_;
-    FocusFilter* focusFilter_;
+    //FocusFilter* focusFilter_;
     QMenu* recentMenu_;
 
 public:
@@ -90,9 +91,9 @@ private:
     void AddPictogramProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
 
     bool ReadCurrentFileInfo();
-    bool ReadCurrentMainInfo(parameters_compiler::info_info& mi);
-    bool ReadCurrentTypeInfo(QString type, parameters_compiler::type_info& ti);
-    bool ReadCurrentParameter(QString type, parameters_compiler::parameter_info& pi);
+    bool ReadCurrentMainInfo(yaml::info_info& mi);
+    bool ReadCurrentTypeInfo(QString type, yaml::type_info& ti);
+    bool ReadCurrentParameter(QString type, yaml::parameter_info& pi);
     
     bool HaveCurrentParameter(QString type);
     bool FillPropertyTypeNames();
@@ -137,4 +138,3 @@ private slots:
     void on_FocusChanged(QObject* sender, bool focus);
     void on_PictogramClicked();
 };
-#endif // MAINWINDOW_H

@@ -2,7 +2,7 @@
 
 SCRIPT_PATH="$( cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 BINARY_DIR="$SCRIPT_PATH/build"
-QT5_BINARY_DIR="@Qt5_DIR@/../../.."
+QT5_BINARY_DIR="@QT_ROOT@"
 
 if [ ! -d "$BINARY_DIR/lib" ]; then mkdir -p "$BINARY_DIR/lib"; fi
 if [ ! -d "$BINARY_DIR/plugins/platforms" ]; then mkdir -p "$BINARY_DIR/plugins/platforms"; fi

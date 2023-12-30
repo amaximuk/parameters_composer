@@ -1,5 +1,4 @@
-#ifndef REFACTORING_HELPER_H_
-#define REFACTORING_HELPER_H_
+#pragma once
 
 #include <QString>
 #include <QFile>
@@ -348,5 +347,3 @@ namespace refactoring
         }
     };
 }
-
-#endif // REFACTORING_HELPER_H_
