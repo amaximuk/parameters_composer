@@ -1,0 +1,3 @@
+[submodule "submodules/parameters"]
+	path = submodules/parameters
+	url = https://github.com/amaximuk/parameters.git
