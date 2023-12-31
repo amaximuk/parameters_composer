@@ -1304,7 +1304,7 @@ bool MainWindow::ReadCurrentParameter(QString type, yaml::parameter_info& pi)
     pi.type = qobject_cast<QComboBox*>(tc.Properties["TYPE"])->currentText().toStdString();
     pi.display_name = qobject_cast<QLineEdit*>(tc.Properties["DISPLAY_NAME"])->text().toStdString();
     pi.description = qobject_cast<QPlainTextEdit*>(tc.Properties["DESCRIPTION"])->toPlainText().toStdString();
-    pi.required = qobject_cast<QCheckBox*>(tc.Properties["REQUIRED"])->isChecked();
+    pi.required = qobject_cast<QCheckBox*>(tc.Properties["REQUIRED"])->isChecked() ? "true" : "false";
     pi.default_ = qobject_cast<QLineEdit*>(tc.Properties["DEFAULT"])->text().toStdString();
     pi.hint = qobject_cast<QLineEdit*>(tc.Properties["HINT"])->text().toStdString();
 
