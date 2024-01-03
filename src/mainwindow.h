@@ -7,7 +7,7 @@
 #include <QPlainTextEdit>
 
 //#include "focus_filter.h"
-#include "yaml_types.h"
+#include "parameters/types.h"
 
 class FocusFilter;
 
@@ -33,7 +33,7 @@ private:
 
 private:
     QString currentFileName_;
-    yaml::file_info fileInfo_;
+    parameters::file_info fileInfo_;
     QList<TabControls> tabs_;
     bool is_json_;
     bool modified_;
@@ -91,9 +91,9 @@ private:
     void AddPictogramProperty(QGridLayout* gridLayout, QString name, int index, QString type, ControlsGroup group);
 
     bool ReadCurrentFileInfo();
-    bool ReadCurrentMainInfo(yaml::info_info& mi);
-    bool ReadCurrentTypeInfo(QString type, yaml::type_info& ti);
-    bool ReadCurrentParameter(QString type, yaml::parameter_info& pi);
+    bool ReadCurrentMainInfo(parameters::info_info& mi);
+    bool ReadCurrentTypeInfo(QString type, parameters::type_info& ti);
+    bool ReadCurrentParameter(QString type, parameters::parameter_info& pi);
     
     bool HaveCurrentParameter(QString type);
     bool FillPropertyTypeNames();
