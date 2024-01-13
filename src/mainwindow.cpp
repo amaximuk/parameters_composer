@@ -873,12 +873,12 @@ void MainWindow::on_OpenFolder_action()
 void MainWindow::on_Help_action()
 {
     QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
-    if (!QFileInfo::exists(QDir(workingDir).filePath("parameters_compiler.pdf")))
+    if (!QFileInfo::exists(QDir(workingDir).filePath("parameters_compiler.docx")))
     {
-        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл parameters_compiler.pdf не найден"));
+        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл parameters_compiler.docx не найден"));
         return;
     }
-    QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("parameters_compiler.pdf"))));
+    QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("parameters_compiler.docx"))));
 }
 
 void MainWindow::on_Recent_action()
