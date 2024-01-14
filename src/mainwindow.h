@@ -63,6 +63,7 @@ private slots:
     void on_ViewYaml_action();
     void on_ViewJson_action();
     void on_ViewCode_action();
+    void on_ViewWiki_action();
     void on_ViewHtml_action();
     void on_OpenFolder_action();
     void on_Help_action();

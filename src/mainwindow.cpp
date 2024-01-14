@@ -16,7 +16,6 @@
 #include <QFileDialog>
 #include <QCloseEvent>
 #include <QComboBox>
-#include <QProcess>
 #include <QDesktopServices>
 #include <QSettings>
 
@@ -735,72 +734,100 @@ void MainWindow::on_Compile_action()
 bool MainWindow::Compile()
 {
     QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
-    if (!SaveAsInternal(QDir(workingDir).filePath("temp.yml"), false, true))
+    QString ymlFilePath = QDir(workingDir).filePath("temp.yml");
+    QString jsonFilePath = QDir(workingDir).filePath("temp.json");
+
+    if (!SaveAsInternal(ymlFilePath, false, true))
     {
         QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Ошибка при сохранении файла YAML"));
         return false;
     }
 
-    if (!SaveAsInternal(QDir(workingDir).filePath("temp.json"), true, true))
+    if (!SaveAsInternal(jsonFilePath, true, true))
     {
         QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Ошибка при сохранении файла JSON"));
         return false;
     }
 
-    QProcess processYaml;
-    processYaml.setProgram(QDir(workingDir).filePath("parameters_compiler.exe"));
-    processYaml.setArguments({ "temp.yml", "-o", "-t" });
-    processYaml.setWorkingDirectory(workingDir);
-    processYaml.start();
-    if (!processYaml.waitForFinished(1000) || processYaml.exitCode() != 0)
+    parameters::file_info fileInfoYml{};
+    if (!parameters::yaml::parser::parse(ymlFilePath.toStdString(), true, fileInfoYml))
     {
-        QString output(processYaml.readAllStandardOutput());
-        if (output == "") output = QString::fromLocal8Bit("Неизвестная ошибка");
-        QMessageBox::critical(this, "Compile YAML", output);
+        QMessageBox::critical(this, "Compile YAML", QString::fromLocal8Bit("Ошибка компиляции файла YAML"));
         return false;
     }
 
-    QProcess processJson;
-    processJson.setProgram(QDir(workingDir).filePath("parameters_compiler.exe"));
-    processJson.setArguments({ "temp.json", "-o", "-t" });
-    processJson.setWorkingDirectory(workingDir);
-    processJson.start();
-    if (!processJson.waitForFinished(1000) || processJson.exitCode() != 0)
+    parameters::file_info fileInfoJson{};
+    if (!parameters::yaml::parser::parse(jsonFilePath.toStdString(), true, fileInfoJson))
     {
-        QString output(processJson.readAllStandardOutput());
-        if (output == "") output = QString::fromLocal8Bit("Неизвестная ошибка");
-        QMessageBox::critical(this, "Compile JSON", output);
+        QMessageBox::critical(this, "Compile YAML", QString::fromLocal8Bit("Ошибка компиляции файла YAML"));
         return false;
     }
 
-    QFile fileYaml(QDir(workingDir).filePath("temp.yml.h"));
-    if (!fileYaml.open(QIODevice::ReadOnly))
+    std::string message;
+    if (!parameters::helper::file::compare(fileInfoYml, fileInfoJson, message))
     {
-        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл кода, скомпилированный из YAML не найден"));
+        QString e = QString::fromStdString(message);
+        QString m = QString::fromLocal8Bit("Файлы YAML и JSON не совпадают, ошибка:\n%1").arg(e);
+        QMessageBox::critical(this, "Compile YAML", m);
         return false;
     }
 
-    QFile fileJson(QDir(workingDir).filePath("temp.json.h"));
-    if (!fileJson.open(QIODevice::ReadOnly))
+    std::list<std::string> code;
+    if (!parameters::formatter::code_formatter::format(fileInfoYml, true, code))
     {
-        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл JSON не найден"));
+        QMessageBox::critical(this, "Compile YAML", QString::fromLocal8Bit("Ошибка формирования заголовочного файла"));
         return false;
     }
 
-    if (fileYaml.size() != fileJson.size())
+    std::list<std::string> wiki;
+    if (!parameters::formatter::wiki_formatter::format(fileInfoYml, true, wiki))
     {
-        QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файлы YAML и JSON отличаются по размеру"));
+        QMessageBox::critical(this, "Compile YAML", QString::fromLocal8Bit("Ошибка формирования файла wiki"));
         return false;
     }
 
-    // Из-за сортировки полей в json это допустимо
-    //QByteArray bytesYaml = fileYaml.readAll();
-    //QByteArray bytesJson = fileJson.readAll();
-    //if (!std::equal(bytesYaml.cbegin(), bytesYaml.cend(), bytesJson.cbegin()))
-    //{
-    //    QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файлы YAML и JSON отличаются по содержимому"));
-    //    return false;
-    //}
+    std::list<std::string> html;
+    if (!parameters::formatter::html_formatter::format(fileInfoYml, true, html))
+    {
+        QMessageBox::critical(this, "Compile YAML", QString::fromLocal8Bit("Ошибка формирования файла html"));
+        return false;
+    }
+
+    QString outputHeaderFilePath = QDir(workingDir).filePath("temp.yml.h");
+    std::ofstream output_header_file(outputHeaderFilePath.toStdString());
+    if (!output_header_file.is_open())
+    {
+        QString m = QString::fromLocal8Bit("Ошибка сохранения заголовочного файла:\n%1").arg(outputHeaderFilePath);
+        QMessageBox::critical(this, "Compile YAML", m);
+        return false;
+    }
+    for (const auto& s : code)
+        output_header_file << s << std::endl;
+    output_header_file.close();
+
+    QString outputWikiFilePath = QDir(workingDir).filePath("temp.yml.txt");
+    std::ofstream output_wiki_file(outputWikiFilePath.toStdString());
+    if (!output_wiki_file.is_open())
+    {
+        QString m = QString::fromLocal8Bit("Ошибка сохранения файла wiki:\n%1").arg(outputWikiFilePath);
+        QMessageBox::critical(this, "Compile YAML", m);
+        return false;
+    }
+    for (const auto& s : wiki)
+        output_wiki_file << s << std::endl;
+    output_wiki_file.close();
+
+    QString outputHtmlFilePath = QDir(workingDir).filePath("temp.yml.html");
+    std::ofstream output_html_file(outputHtmlFilePath.toStdString());
+    if (!output_html_file.is_open())
+    {
+        QString m = QString::fromLocal8Bit("Ошибка сохранения файла html:\n%1").arg(outputHtmlFilePath);
+        QMessageBox::critical(this, "Compile YAML", m);
+        return false;
+    }
+    for (const auto& s : html)
+        output_html_file << s << std::endl;
+    output_html_file.close();
 
     return true;
 }
@@ -844,6 +871,20 @@ void MainWindow::on_ViewCode_action()
             return;
         }
         QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.yml.h"))));
+    }
+}
+
+void MainWindow::on_ViewWiki_action()
+{
+    if (Compile())
+    {
+        QString workingDir = QDir(QCoreApplication::applicationDirPath()).filePath("parameters_compiler");
+        if (!QFileInfo::exists(QDir(workingDir).filePath("temp.yml.txt")))
+        {
+            QMessageBox::critical(this, "parameters_composer", QString::fromLocal8Bit("Файл temp.yml.txt не найден.\nЗапустите компиляцию!"));
+            return;
+        }
+        QDesktopServices::openUrl(QUrl(QString("file:///%1").arg(QDir(workingDir).filePath("temp.yml.txt"))));
     }
 }
 
@@ -959,6 +1000,10 @@ void MainWindow::CreateMenu()
     viewCodeAct->setStatusTip(QString::fromLocal8Bit("Предварительный просмотр .h файла"));
     connect(viewCodeAct, &QAction::triggered, this, &MainWindow::on_ViewCode_action);
 
+    QAction* viewWikiAct = new QAction(QString::fromLocal8Bit("Просмотр WIKI"), this);
+    viewWikiAct->setStatusTip(QString::fromLocal8Bit("Предварительный просмотр WIKI файла"));
+    connect(viewWikiAct, &QAction::triggered, this, &MainWindow::on_ViewWiki_action);
+
     QAction* viewHtmlAct = new QAction(QString::fromLocal8Bit("Просмотр HTML"), this);
     viewHtmlAct->setStatusTip(QString::fromLocal8Bit("Предварительный просмотр HTML файла"));
     connect(viewHtmlAct, &QAction::triggered, this, &MainWindow::on_ViewHtml_action);
@@ -973,6 +1018,7 @@ void MainWindow::CreateMenu()
     compileMenu->addAction(viewYamlAct);
     compileMenu->addAction(viewJsonAct);
     compileMenu->addAction(viewCodeAct);
+    compileMenu->addAction(viewWikiAct);
     compileMenu->addAction(viewHtmlAct);
     compileMenu->addSeparator();
     compileMenu->addAction(openFolderAct);
