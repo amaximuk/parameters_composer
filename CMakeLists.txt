@@ -14,8 +14,6 @@ set(CMAKE_AUTOUIC ON)
 set(PACKAGE_MANAGER "NONE" CACHE STRING "Type of package manager to be used for configure project")
 set_property(CACHE PACKAGE_MANAGER PROPERTY STRINGS NONE CONAN 3RDPARTY)
 
-set(BUILD_PARAMETERS_COMPILER ON)
-
 if("${PACKAGE_MANAGER}" STREQUAL "CONAN")
 	set(CMAKE_PREFIX_PATH ${CMAKE_BINARY_DIR})
 	set(CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
@@ -70,13 +68,6 @@ if(WIN32)
 	target_compile_options(${PROJECT_NAME} PRIVATE /MP)
 endif()
 
-add_custom_command(
-	TARGET ${PROJECT_NAME} POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		$<$<CONFIG:Debug>:${CMAKE_CURRENT_BINARY_DIR}/submodules/parameters/parameters_compiler/Debug/parameters_compilerd.exe>
-		$<$<CONFIG:Release>:${CMAKE_CURRENT_BINARY_DIR}/submodules/parameters/parameters_compiler/Release/parameters_compiler.exe>
-		${CMAKE_CURRENT_BINARY_DIR}/Debug/parameters_compiler/parameters_compiler.exe)
-  
 configure_file(${PROJECT_SOURCE_DIR}/deploy_linux.sh.in ${PROJECT_SOURCE_DIR}/deploy_linux.sh @ONLY)
 configure_file(${PROJECT_SOURCE_DIR}/deploy_windows_debug.cmd.in ${PROJECT_SOURCE_DIR}/deploy_windows_debug.cmd @ONLY)
 configure_file(${PROJECT_SOURCE_DIR}/deploy_windows_release.cmd.in ${PROJECT_SOURCE_DIR}/deploy_windows_release.cmd @ONLY)
